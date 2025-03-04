@@ -175,7 +175,7 @@ if __name__ == "__main__":
     CHANNELS = 16
 
     MODEL = NCA_3D()
-    EPOCHS = 5
+    EPOCHS = 20
     BATCH_SIZE = 32
     UPDATES_RANGE = [32,64]
 
@@ -198,5 +198,5 @@ if __name__ == "__main__":
 
     ## Plot final state of evaluation OR evaluation animation
     img = new_seed(target_voxel=target_voxel, batch_size=1)
-    model_generated_voxel = forward_pass(MODEL, img, 32, record=True)
+    model_generated_voxel = forward_pass(MODEL, img, 64, record=True)
     anim = visualise(model_generated_voxel, save=True, show=True)
