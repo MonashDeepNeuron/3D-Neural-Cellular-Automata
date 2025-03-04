@@ -6,3 +6,4 @@ plotly
 seaborn
 ipython
 moviepy==1.0.3
+midvoxio.voxio

@@ -18,6 +18,15 @@ output: batch, rgba, x, y, z
 if torch.cuda.is_available():
     torch.set_default_device("cuda")
 
+def minimise_voxel(imgTensor):
+    imgTensor
+    non_zeros = (torch.nonzero(imgTensor[3,:, :, :])).permute(1,0)
+
+    min_bounds = [torch.min(non_zeros[i]) for i in range(non_zeros.shape[0])]
+    max_bounds = [torch.max(non_zeros[i]) for i in range(non_zeros.shape[0])]
+
+    imgTensor = imgTensor[:, min_bounds[0]:max_bounds[0]+1, min_bounds[1]:max_bounds[1]+1, min_bounds[2]:max_bounds[2]+1]
+    return imgTensor 
 
 def visualise(imgTensor, filenameBase="minecraft", save=True, show=False):
     fig = plt.figure()
@@ -47,8 +56,6 @@ def visualise(imgTensor, filenameBase="minecraft", save=True, show=False):
         ax.set_xlim([0, imgTensor.shape[1]])
         ax.set_ylim([0, imgTensor.shape[2]])
         ax.set_zlim([0, imgTensor.shape[3]])
-
-        ## TODO: might need to reset this Set aspect ratio to be equal
 
         ## Only plot voxels with alpha channel > 0.1, and clip the RGBA channels to be between 0 and 1
         ax.voxels(
@@ -184,9 +191,10 @@ if __name__ == "__main__":
     TRAINING = True
     GRID_SIZE = 32
     CHANNELS = 16
+    VOXEL_PATH_NAME = "potted_flower"
 
     MODEL = NCA_3D()
-    EPOCHS = 20
+    EPOCHS = 10
     BATCH_SIZE = 32
     UPDATES_RANGE = [48, 64]
 
@@ -195,16 +203,17 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
 
-    target_voxel = load_image("./voxel_models/donut.vox")
+    target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")    
+    target_voxel = minimise_voxel(target_voxel)
     # anim = visualise(target_voxel, save=False, show=True)
 
     if TRAINING:
-        if os.path.exists("Minecraft.pth"):
+        if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
             MODEL.load_state_dict(
-                torch.load("Minecraft.pth", map_location=torch.device("cpu"))
+                torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
             )
         MODEL, losses = train(MODEL, target_voxel, optimizer)
-        torch.save(MODEL.state_dict(), "Minecraft.pth")
+        torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
     ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
