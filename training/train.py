@@ -5,138 +5,86 @@ from model import NCA_3D
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-import trimesh
 import os
 import matplotlib.animation as animation
-from midvoxio.voxio import vox_to_arr,viz_vox
+from midvoxio.voxio import vox_to_arr
+
+'''
+target_voxel : rgba, x, y, z
+seed: rgba, x, y, z
+output: batch, rgba, x, y, z
+'''
 
 if torch.cuda.is_available():
     torch.set_default_device("cuda")
 
-
-def visualise(imgTensor, isNCAVoxel=True, filenameBase="minecraft", save=True, show=False):
-    """
-    Visualise a designated snapshot of the grid specified by idx and axis.
-
-    - isNCAVoxel: If True, the input tensor is in the format of NCA (batch, channel, x, y, z)
-      and the batch dimension is assumed to represent time.
-      If False, the input tensor is in the format of target_voxel (x, y, z, channel)
-    """
+def visualise(imgTensor, filenameBase="minecraft", save=True, show=False):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
-    if isNCAVoxel:
-        # For a time series, assume the batch dimension is time.
-        # Permute to (time, channel, x, y, z)
-        imgTensor = imgTensor.permute(0, 2, 3, 4, 1)
-        ax.voxels(imgTensor[len(imgTensor[0])-1,:, :, :, 0], edgecolor="k")
-    else:
-        # If not NCA, assume there's no time dimension.
-        # If you want a time series from a static voxel grid, you may need to add an extra dimension.
-        minimum = np.min([imgTensor.shape[0], imgTensor.shape[1], imgTensor.shape[2]])
-        ax.set_box_aspect([imgTensor.shape[0]/minimum, imgTensor.shape[1]/minimum, imgTensor.shape[2]/minimum]) 
-        ax.voxels(imgTensor[:, :, :, 0], edgecolor="k")
+     ## If imgTensor does not have batch dimension, add batch dimension of size 1 
+    if imgTensor.ndim < 5:
+        imgTensor = imgTensor.unsqueeze(0) 
+
+    ## Permute the tensor to (batch, x, y, z, channel) from (batch, channel, x, y, z)
+    imgTensor = imgTensor.permute(0, 2, 3, 4, 1)
+
+    ## Convert tensor to numpy array (as otherwise matplotlib cannot transpose it (when moveaxis is used))
+    imgTensor = imgTensor.detach().numpy()
+
+    ## Voxels look like they have their x and y swapped when plotted with matplotlib, so swap them for visualisation
+    imgTensor = np.moveaxis(imgTensor, (1, 2), (1, 2))
+
+    ## Calculate minimum edge length to ensure all voxels are cuboid
+    ax.set_box_aspect(imgTensor.shape[1:4]/np.max(imgTensor.shape[1:4]))
 
     def update(imgIdx):
- 
-      
-        ax.cla()  # clear axis to prevent overlaying plots
+        ## Clear axis to avoid overlaying plots
+        ax.cla() 
 
-        ## fix axis range
-        ax.set_xlim([0, imgTensor.shape[1]])  # Fix X axis range
-        ax.set_ylim([0, imgTensor.shape[2]])  # Fix Y axis range
+        ## Fix all axis range to show growth better
+        ax.set_xlim([0, imgTensor.shape[1]]) 
+        ax.set_ylim([0, imgTensor.shape[2]])  
         ax.set_zlim([0, imgTensor.shape[3]]) 
     
-        ## Set aspect ratio to be equal
-        minimum = np.min([imgTensor.shape[1], imgTensor.shape[2], imgTensor.shape[3]])
-        ax.set_box_aspect([1, imgTensor.shape[1]/minimum, imgTensor.shape[2]/minimum]) 
-        current_frame = imgTensor[imgIdx, :, :, :, 0]
-        current_frame = current_frame.detach().cpu().numpy()
-        
-        # define RGBA color map where alpha corresponds to the voxel value
-        colors = np.zeros((*current_frame.shape, 4))  # Shape (X, Y, Z, 4)
-        colors[..., 0] = 0  
-        colors[..., 1] = 1.0  
-        colors[..., 2] = 0  
-        ## clip current frame values to 1
-        current_frame = np.clip(current_frame, 0, 1)
-        colors[..., 3] = current_frame # Alpha channel (transparency)
-
-        # ensure only VERY alive cells  are rendered
-        filled = current_frame > 0.5 
-
+        ## TODO: might need to reset this Set aspect ratio to be equal
+      
+        ## Only plot voxels with alpha channel > 0.1, and clip the RGBA channels to be between 0 and 1
+        ax.voxels(filled = (imgTensor[imgIdx, :, :, :, 3] > 0.1), facecolors = np.clip(imgTensor[imgIdx, :, :, :, :4], 0, 1))
         ax.set_title(f"Frame {imgIdx}")
-        ax.voxels(filled, facecolors=colors, edgecolor="k")  # apply colors with transparency
 
 
-
-    if save:
-        # Create an animation with the number of frames equal to the time dimension
+    if save:    
+        ## Create an animation with the number of frames equal to the time dimension
         ani = animation.FuncAnimation(fig, update, frames=len(imgTensor), repeat=False)
-        writer = animation.PillowWriter(fps=5,
-                                        metadata=dict(artist='Me'),
-                                        bitrate=1800)
+        writer = animation.PillowWriter(fps=5, metadata=dict(artist='Me'), bitrate=1800)
         ani.save(filenameBase + '.gif', writer=writer)
 
     if show:
+        update(imgIdx = 0)
         plt.show()
-        plt.close('all')
+        plt.close()
 
     return
 
 def new_seed(target_voxel, batch_size=1):
     """
-    seed is like a cube map that sets a singular pixel activated
+    Seed is a cube map that sets a singular pixel activated in form 
     """
     SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
     seed = torch.zeros(
-        batch_size, CHANNELS, SHAPE[0], SHAPE[1], SHAPE[2]
+        batch_size, CHANNELS, SHAPE[1], SHAPE[2], SHAPE[3]
         )
     
     ## Batch, channels, x, y, z
-    seed[:, 0, SHAPE[0]//2, SHAPE[1]//2, 0] = 1  #  Alpha channel = 1
+    seed[:, 3, SHAPE[1]//2, SHAPE[2]//2, 0] = 1  #  Alpha channel = 3 (as 4th value in RGBA channel)
     return seed
 
 
 def load_image(imagePath: str):
-    """
-    Get the output image, which is a OBJ, and transform it into a tensor such that we can use it as the target_voxel image for the output.
-    1. Obtain mesh
-    2. Obtain the vertices from the mesh
-    3. Convert colours to mesh
-    """
-
-    # mesh_path = imagePath
-    # mesh = trimesh.load(mesh_path, force = "mesh")    #
-    # if mesh.is_empty:
-    #     raise ValueError("The mesh is empty and cannot be voxelized.")
-
-    # print("Mesh loaded successfully with vertices:", mesh.vertices.shape)
-    # print("Mesh loaded successfully with faces:", mesh.faces.shape)
-
-    # # Calculate the pitch for each axis to match the desired number of voxels
-    # voxel = mesh.voxelized(pitch = 0.5) 
-    # ## TODO: convert texture information into colours
-    # # colours = mesh.visual.to_color().vertex_colors
-    # # colours = np.asarray(colours)
-
-    # ## get vertices from mesh
-    # mesh_vertices = mesh.vertices
-    # _, vertex_idx = trimesh.proximity.ProximityQuery(mesh).vertex(voxel.points)
-
-    # # we initialize a array of zeros of size X,Y,Z,1 to contain the colors for each voxel of the voxelized mesh in the grid
-
-    # alpha_values = np.zeros([voxel.shape[0], voxel.shape[2], voxel.shape[1], 1])
-    # ## map vertices to grid coordinates
-    # for idx, vert in enumerate(vertex_idx):
-    #     vox_verts = voxel.points_to_indices(mesh_vertices[vert])
-    #     alpha_values[vox_verts[0], vox_verts[2], vox_verts[1], 0] = 1
-    
-    # voxel_tensor = torch.tensor(alpha_values, dtype=torch.float32)
-    voxel_tensor = vox_to_arr(imagePath)
-
-    return torch.tensor(voxel_tensor).float()
-    # return voxel_tensor
+    voxel = vox_to_arr(imagePath)
+    voxel_tensor = torch.tensor(voxel).float()
+    return voxel_tensor.permute(3,0,1,2)
 
 
 def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
@@ -146,7 +94,7 @@ def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
     Returns the final state
     """
     if record:
-        frames_array = Tensor(updates, CHANNELS, target_voxel.shape[0], target_voxel.shape[1], target_voxel.shape[2])
+        frames_array = Tensor(updates, CHANNELS, target_voxel.shape[1], target_voxel.shape[2], target_voxel.shape[3])
         for i in range(updates):
             state = model(state)
             frames_array[i] = state
@@ -171,12 +119,11 @@ def update_pass(model, batch, target_voxel, optimiser):
 
         output = forward_pass(model = model, state = batch[batch_idx].unsqueeze(0), updates = updates)
 
-        ## apply pixel-wise MSE loss between RGBA channels in the grid and the target_voxel pattern
-        ## X Y Z Alpha
-        output = output.squeeze(0).permute(1, 2, 3, 0)
+        ## Apply voxel-wise MSE loss between RGBA channels in the grid and the target_voxel pattern
+        output = output.squeeze(0)[0:4, :, :, :]
  
         loss = LOSS_FN(
-            output[:, :, :, 0:4], target_voxel
+            output, target_voxel
         )  
         batch_losses[batch_idx] = loss.item()
         loss.backward()
@@ -228,9 +175,9 @@ if __name__ == "__main__":
     CHANNELS = 16
 
     MODEL = NCA_3D()
-    EPOCHS = 0
+    EPOCHS = 5
     BATCH_SIZE = 32
-    UPDATES_RANGE = [54,64]
+    UPDATES_RANGE = [32,64]
 
     LR = 1e-3
 
@@ -238,7 +185,7 @@ if __name__ == "__main__":
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
 
     target_voxel = load_image("./voxel_models/donut.vox")
-    # anim = visualise(target_voxel, isNCAVoxel=False, save=False, show=True) 
+    # anim = visualise(target_voxel, save=False, show=True) 
 
     if TRAINING:
         if os.path.exists("Minecraft.pth"):
@@ -251,5 +198,5 @@ if __name__ == "__main__":
 
     ## Plot final state of evaluation OR evaluation animation
     img = new_seed(target_voxel=target_voxel, batch_size=1)
-    model_generated_voxel = forward_pass(MODEL, img, 64, record=True)
-    anim = visualise(model_generated_voxel, isNCAVoxel=True, save=True, show=True)
+    model_generated_voxel = forward_pass(MODEL, img, 32, record=True)
+    anim = visualise(model_generated_voxel, save=True, show=True)

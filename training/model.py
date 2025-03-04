@@ -91,7 +91,7 @@ class NCA_3D(nn.Module):
         A cell is considered empty (set rgba : 0) if there is no mature (alpha > 0.1) cell in its 3x3 neighbourhood
         """
         mask = (
-            f.max_pool3d(x[:, 0:1, :, :, :], kernel_size=3, stride=1, padding=1) > 0.5
+            f.max_pool3d(x[:, 3:4, :, :, :], kernel_size=3, stride=1, padding=1) > 0.01
         )
 
         # Apply mask
