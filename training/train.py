@@ -17,6 +17,8 @@ output: batch, rgba, x, y, z
 
 if torch.cuda.is_available():
     torch.set_default_device("cuda")
+    torch.set_default_dtype(torch.float64)
+    #torch.set_default_device("cpu")
 
 def minimise_voxel(imgTensor):
     imgTensor
@@ -28,7 +30,7 @@ def minimise_voxel(imgTensor):
     imgTensor = imgTensor[:, min_bounds[0]:max_bounds[0]+1, min_bounds[1]:max_bounds[1]+1, min_bounds[2]:max_bounds[2]+1]
     return imgTensor 
 
-def visualise(imgTensor, filenameBase="minecraft", save=True, show=False):
+def visualise(imgTensor, filenameBase="gpu_64_minecraft", save=True, show=False):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
@@ -86,7 +88,10 @@ def new_seed(target_voxel, batch_size=1):
     seed = torch.zeros(batch_size, CHANNELS, SHAPE[1], SHAPE[2], SHAPE[3])
 
     ## Batch, channels, x, y, z
-    seed[:, 3, SHAPE[1] // 2, SHAPE[2] // 2, 0] = (
+    # seed[:, 3, SHAPE[1] // 2, SHAPE[2] // 2, 0] = (
+    #     1  #  Alpha channel = 3 (as 4th value in RGBA channel)
+    # )
+    seed[:, 3, SHAPE[1]-4, SHAPE[2]-4, 0] = (
         1  #  Alpha channel = 3 (as 4th value in RGBA channel)
     )
     return seed
@@ -95,6 +100,7 @@ def new_seed(target_voxel, batch_size=1):
 def load_image(imagePath: str):
     voxel = vox_to_arr(imagePath)
     voxel_tensor = torch.tensor(voxel).float()
+    voxel_tensor = voxel_tensor.to(torch.float64) 
     return voxel_tensor.permute(3, 0, 1, 2)
 
 
@@ -188,15 +194,16 @@ def initialiseGPU(model):
 
 
 if __name__ == "__main__":
+    torch.manual_seed(0)
     TRAINING = True
     GRID_SIZE = 32
     CHANNELS = 16
-    VOXEL_PATH_NAME = "potted_flower"
+    VOXEL_PATH_NAME = "donut"
 
     MODEL = NCA_3D()
-    EPOCHS = 10
+    EPOCHS = 50
     BATCH_SIZE = 32
-    UPDATES_RANGE = [48, 64]
+    UPDATES_RANGE = [64, 96]
 
     LR = 1e-3
     initialiseGPU(MODEL)
@@ -204,21 +211,21 @@ if __name__ == "__main__":
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
 
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")    
-    target_voxel = minimise_voxel(target_voxel)
-    # anim = visualise(target_voxel, save=False, show=True)
+    target_voxel = minimise_voxel(target_voxel).cpu()
+    anim = visualise(target_voxel, save=False, show=True)
 
-    if TRAINING:
-        if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
-            MODEL.load_state_dict(
-                torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
-            )
-        MODEL, losses = train(MODEL, target_voxel, optimizer)
-        torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+    # if TRAINING:
+    #     # if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
+    #     #     MODEL.load_state_dict(
+    #     #         torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
+    #     #     )
+    #     MODEL, losses = train(MODEL, target_voxel, optimizer)
+    #     # torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
-    ## Switch state to evaluation to disable dropout e.g.
-    MODEL.eval()
+    # ## Switch state to evaluation to disable dropout e.g.
+    # MODEL.eval()
 
-    ## Plot final state of evaluation OR evaluation animation
-    img = new_seed(target_voxel=target_voxel, batch_size=1)
-    model_generated_voxel = forward_pass(MODEL, img, 64, record=True)
-    anim = visualise(model_generated_voxel, save=True, show=True)
+    # ## Plot final state of evaluation OR evaluation animation
+    # img = new_seed(target_voxel=target_voxel, batch_size=1)
+    # model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
+    # anim = visualise(model_generated_voxel, save=True, show=False)
