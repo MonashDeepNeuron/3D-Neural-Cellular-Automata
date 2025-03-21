@@ -460,9 +460,6 @@ def make_voxel_grid_center(voxels, palette, padding=0):
 
 from midvoxio.voxio import vox_to_arr,viz_vox
 
-# print(vox_to_arr('voxel_models/donut.vox').shape)
-# viz_vox('voxel_models/donut.vox')
-
 import pandas as pd
 
 import numpy as np
@@ -485,13 +482,11 @@ def main():
     voxel_data = df[['x', 'y', 'z', 't', 'label']].copy()
     voxel_data[['x', 'y', 'z']] = voxel_data[['x', 'y', 'z']].astype(int)
 
-    # Extract the voxel coordinates (x, y, z)
     arr = df[voxel_data[['x', 'y', 'z']].copy().columns].values
     arr_swapped = arr[:, [2, 1, 0]]  # Swap (x, y, z) -> (z, y, x)
     max_z, max_y, max_x = arr_swapped.max(axis=0)
     print("swapped shape", arr_swapped.shape)
 
-    # **Scaling Step** (apply scale factor first)
     scale_factor = 10  # Scaling factor
     arr_swapped = (arr_swapped / scale_factor).astype(int)
     max_z, max_y, max_x = arr_swapped.max(axis=0)
@@ -503,7 +498,6 @@ def main():
         np.arange(0, max_z + bin_size, bin_size)
     ]
 
-    # Digitize the coordinates into bins
     digitized_x = np.digitize(arr_swapped[:, 2], bins[0]) - 1
     digitized_y = np.digitize(arr_swapped[:, 1], bins[1]) - 1
     digitized_z = np.digitize(arr_swapped[:, 0], bins[2]) - 1
@@ -519,14 +513,11 @@ def main():
 
     # this binning shit might work in the future but right now it really doesn't do anything
 
-    # **Plot**
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
 
-    # Convert to boolean mask for visualization
     ax.voxels(voxel_grid.astype(bool), facecolors='blue', edgecolors='k', alpha=0.5)
 
-    # Save the image
     print("Writing....")
     random_number = randint(1, 50000)
     plt.savefig(f"voxel_visualization_end_{random_number}.png", dpi=300)
@@ -556,18 +547,16 @@ def create_frame(iteration, csv_path):
     arr_swapped = arr[:, [2, 1, 0]]  # Swap (x, y, z) -> (z, y, x)
     max_z, max_y, max_x = arr_swapped.max(axis=0)
 
-    # **Scaling Step** (apply scale factor first)
-    scale_factor = 10  # Scaling factor
+    scale_factor = 25 
     arr_swapped = (arr_swapped / scale_factor).astype(int)
     
-    bin_size = 1  # Bin size for grouping
+    bin_size = 1  # DONT USE THIS DOGSHIT
     bins = [
         np.arange(0, max_x + bin_size, bin_size),
         np.arange(0, max_y + bin_size, bin_size),
         np.arange(0, max_z + bin_size, bin_size)
     ]
 
-    # Digitize the coordinates into bins
     digitized_x = np.digitize(arr_swapped[:, 2], bins[0]) - 1
     digitized_y = np.digitize(arr_swapped[:, 1], bins[1]) - 1
     digitized_z = np.digitize(arr_swapped[:, 0], bins[2]) - 1
