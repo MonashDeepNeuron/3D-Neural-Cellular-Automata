@@ -1,6 +1,7 @@
 #@title Visualization code
 #@title Required imports
 import numpy as np
+from random import randint
 
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
@@ -464,65 +465,144 @@ from midvoxio.voxio import vox_to_arr,viz_vox
 
 import pandas as pd
 
-def plot_3d(arr):
-    '''
-    Plot voxel array (arr should be a list of z, y, x coordinates).
-    '''
-    # Create an empty 3D grid, assuming the coordinates in arr represent voxel positions.
-    max_z, max_y, max_x = np.max(arr, axis=0) + 1  # Get grid dimensions based on max values in arr
-    voxel_grid = np.zeros((max_z, max_y, max_x), dtype=bool)
-
-    # Mark the points in the voxel grid based on coordinates in arr
-    for z, y, x in arr.astype(int):  # Assuming arr is a 2D array with z, y, x columns
-        voxel_grid[z, y, x] = 1
-
-    # Plot the voxels in 3D
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
-
-    # Display voxels where the value is 1
-    ax.voxels(voxel_grid, facecolors='blue', edgecolors='k', alpha=0.5)  # You can change color as needed
-
-    plt.show()
-    plt.close()
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from random import randint
 
 def main():
     csv_path = "./Database.csv"
-    iteration =  int(input("Enter a specific frame to visualise: "))
+    iteration = int(input("Enter a specific frame to visualise: "))
 
+    # Load the data
     absolutemax = pd.read_csv(csv_path)
-
     ITERATION = (18934 * iteration)
     ITERATIONUPPERBOUND = (18934 * iteration) + 18934
-    df = pd.read_csv(csv_path)[ITERATION:ITERATIONUPPERBOUND]
-
+    df = pd.read_csv(csv_path).iloc[ITERATION:ITERATIONUPPERBOUND].reset_index(drop=True)
 
     print(df.head(len(df)))
-    voxel_data = df[['x', 'y', 'z', 't', 'label']].copy()
 
-    # Normalize positions (optional: rescale or center)
+    voxel_data = df[['x', 'y', 'z', 't', 'label']].copy()
     voxel_data[['x', 'y', 'z']] = voxel_data[['x', 'y', 'z']].astype(int)
 
+    # Extract the voxel coordinates (x, y, z)
+    arr = df[voxel_data[['x', 'y', 'z']].copy().columns].values
+    arr_swapped = arr[:, [2, 1, 0]]  # Swap (x, y, z) -> (z, y, x)
+    max_z, max_y, max_x = arr_swapped.max(axis=0)
+    print("swapped shape", arr_swapped.shape)
 
-    maxarr = absolutemax[voxel_data[['x', 'y', 'z']].copy().columns].values
-    maxarr_swapped = maxarr[:, [2, 1, 0]]
-    print("swapped shape", maxarr_swapped.shape)
-    #print(arr, "\n", arr_swapped)
+    # **Scaling Step** (apply scale factor first)
+    scale_factor = 10  # Scaling factor
+    arr_swapped = (arr_swapped / scale_factor).astype(int)
+    max_z, max_y, max_x = arr_swapped.max(axis=0)
+    
+    bin_size = 1 # Bin size for grouping
+    bins = [
+        np.arange(0, max_x + bin_size, bin_size),
+        np.arange(0, max_y + bin_size, bin_size),
+        np.arange(0, max_z + bin_size, bin_size)
+    ]
 
-    # Get the maximum values for each axis
-    absmax_z, absmax_y, absmax_x = np.max(maxarr_swapped, axis=0).astype(int)
-    print("absmax values", absmax_z, absmax_y, absmax_x)
-
-
-    scale_factor = 10 
-    maxarr_swapped = (maxarr_swapped / scale_factor).astype(int)
-    max_z, max_y, max_x = maxarr_swapped.max(axis=0)
+    # Digitize the coordinates into bins
+    digitized_x = np.digitize(arr_swapped[:, 2], bins[0]) - 1
+    digitized_y = np.digitize(arr_swapped[:, 1], bins[1]) - 1
+    digitized_z = np.digitize(arr_swapped[:, 0], bins[2]) - 1
+    binned_voxels = np.column_stack((digitized_z, digitized_y, digitized_x))
+    max_z, max_y, max_x = binned_voxels.max(axis=0)
     voxel_grid = np.zeros((max_z + 1, max_y + 1, max_x + 1), dtype=int)
 
-    # Set voxel values to 1 where points exist
-    for z, y, x in maxarr_swapped.astype(int):
+    # Mark occupied bins in the voxel grid
+    for z, y, x in binned_voxels:
         voxel_grid[z, y, x] = 1
-    return plot_3d(maxarr_swapped)
+
+    print(f"Voxel Grid Shape: {voxel_grid.shape}")
+
+    # this binning shit might work in the future but right now it really doesn't do anything
+
+    # **Plot**
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    # Convert to boolean mask for visualization
+    ax.voxels(voxel_grid.astype(bool), facecolors='blue', edgecolors='k', alpha=0.5)
+
+    # Save the image
+    print("Writing....")
+    random_number = randint(1, 50000)
+    plt.savefig(f"voxel_visualization_end_{random_number}.png", dpi=300)
+    print("Done!")
+    plt.close()
+
+# main()
 
 
-main()
+output_dir = './frames'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+def create_frame(iteration, csv_path):
+    # Load the data
+    absolutemax = pd.read_csv(csv_path)
+    iteration = iteration * 5 # RUN THROUGH 15 STEPS AT A TIME; CHANGE THIS LATER (?)
+    ITERATION = (18934 * iteration)
+    ITERATIONUPPERBOUND = (18934 * iteration) + 18934
+    df = pd.read_csv(csv_path).iloc[ITERATION:ITERATIONUPPERBOUND].reset_index(drop=True)
+
+    voxel_data = df[['x', 'y', 'z', 't', 'label']].copy()
+    voxel_data[['x', 'y', 'z']] = voxel_data[['x', 'y', 'z']].astype(int)
+
+    # Extract the voxel coordinates (x, y, z)
+    arr = df[voxel_data[['x', 'y', 'z']].copy().columns].values
+    arr_swapped = arr[:, [2, 1, 0]]  # Swap (x, y, z) -> (z, y, x)
+    max_z, max_y, max_x = arr_swapped.max(axis=0)
+
+    # **Scaling Step** (apply scale factor first)
+    scale_factor = 10  # Scaling factor
+    arr_swapped = (arr_swapped / scale_factor).astype(int)
+    
+    bin_size = 1  # Bin size for grouping
+    bins = [
+        np.arange(0, max_x + bin_size, bin_size),
+        np.arange(0, max_y + bin_size, bin_size),
+        np.arange(0, max_z + bin_size, bin_size)
+    ]
+
+    # Digitize the coordinates into bins
+    digitized_x = np.digitize(arr_swapped[:, 2], bins[0]) - 1
+    digitized_y = np.digitize(arr_swapped[:, 1], bins[1]) - 1
+    digitized_z = np.digitize(arr_swapped[:, 0], bins[2]) - 1
+    binned_voxels = np.column_stack((digitized_z, digitized_y, digitized_x))
+
+    # Create voxel grid
+    max_z, max_y, max_x = binned_voxels.max(axis=0)
+    voxel_grid = np.zeros((max_z + 1, max_y + 1, max_x + 1), dtype=int)
+    
+    # Mark occupied bins in the voxel grid
+    for z, y, x in binned_voxels:
+        voxel_grid[z, y, x] = 1
+
+    # **Plot**
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    # Convert to boolean mask for visualization
+    ax.voxels(voxel_grid.astype(bool), facecolors='blue', edgecolors='k', alpha=0.5)
+
+    # Save the image
+    frame_filename = f"{output_dir}/frame_{iteration}.png"
+    print(f"Writing {frame_filename}...")
+    plt.savefig(frame_filename, dpi=300)
+    plt.close()
+
+def main2():
+    csv_path = "./Database.csv"
+    start_frame = int(input("Enter the start frame: "))
+    end_frame = int(input("Enter the end frame: "))
+
+    # Generate frames for each iteration in the range [start_frame, end_frame]
+    for iteration in range(start_frame, end_frame + 1):
+        create_frame(iteration, csv_path)
+
+    print("All frames have been saved!")
+
+main2()
