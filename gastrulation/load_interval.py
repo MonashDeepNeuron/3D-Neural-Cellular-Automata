@@ -599,6 +599,14 @@ def main2():
     start_frame = int(input("Enter the start frame: "))
     end_frame = int(input("Enter the end frame: "))
 
+    absolutemax = pd.read_csv(csv_path)
+    voxel_data = absolutemax[['x', 'y', 'z', 't', 'label']].copy()
+    voxel_data[['x', 'y', 'z']] = voxel_data[['x', 'y', 'z']].astype(int)
+    treedcoordinates = absolutemax[voxel_data[['x', 'y', 'z']].copy().columns].values
+    treedcoordinates_swapped = treedcoordinates[:, [2, 1, 0]]  # Swap (x, y, z) -> (z, y, x)
+    max_z, max_y, max_x = treedcoordinates_swapped.max(axis=0)
+    print(max_z, max_y, max_x)  
+
     # Generate frames for each iteration in the range [start_frame, end_frame]
     for iteration in range(start_frame, end_frame + 1):
         create_frame(iteration, csv_path)
