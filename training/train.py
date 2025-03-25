@@ -100,7 +100,11 @@ def new_seed(target_voxel, batch_size=1):
 def load_image(imagePath: str):
     voxel = vox_to_arr(imagePath)
     voxel_tensor = torch.tensor(voxel).float()
-    voxel_tensor = voxel_tensor.to(torch.float64) 
+    if torch.cuda.is_available():
+        voxel_tensor = voxel_tensor.to(torch.float64) 
+    else:
+        voxel_tensor = voxel_tensor.to(torch.float32) 
+
     return voxel_tensor.permute(3, 0, 1, 2)
 
 
@@ -212,20 +216,20 @@ if __name__ == "__main__":
 
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")    
     target_voxel = minimise_voxel(target_voxel).cpu()
-    anim = visualise(target_voxel, save=False, show=True)
+    # anim = visualise(target_voxel, save=False, show=True)
 
-    # if TRAINING:
-    #     # if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
-    #     #     MODEL.load_state_dict(
-    #     #         torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
-    #     #     )
-    #     MODEL, losses = train(MODEL, target_voxel, optimizer)
-    #     # torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+    if TRAINING:
+        if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
+            MODEL.load_state_dict(
+                torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
+            )
+        MODEL, losses = train(MODEL, target_voxel, optimizer)
+        torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
     # ## Switch state to evaluation to disable dropout e.g.
-    # MODEL.eval()
+    MODEL.eval()
 
     # ## Plot final state of evaluation OR evaluation animation
-    # img = new_seed(target_voxel=target_voxel, batch_size=1)
-    # model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
-    # anim = visualise(model_generated_voxel, save=True, show=False)
+    img = new_seed(target_voxel=target_voxel, batch_size=1)
+    model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
+    anim = visualise(model_generated_voxel, save=True, show=False)

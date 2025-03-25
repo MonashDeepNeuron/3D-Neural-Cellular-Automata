@@ -2,10 +2,12 @@ import torch
 from torch import nn
 import torch.nn.functional as f
 
+FLOAT_TYPE = torch.float64 if torch.cuda.is_available() else torch.float32
+
 # Use GPU if available
 if torch.cuda.is_available():
     torch.set_default_device("cuda")
-    torch.set_default_dtype(torch.float64)
+    torch.set_default_dtype(FLOAT_TYPE)
 
 # Define perceptions
 SOBEL_X = torch.tensor(
@@ -14,11 +16,11 @@ SOBEL_X = torch.tensor(
         [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
         [[1, 2, 1], [2, 4, 2], [1, 2, 1]],
     ],
-    dtype=torch.float64,
+    dtype=FLOAT_TYPE,
 )
 SOBEL_Y = -torch.rot90(SOBEL_X, k=-1, dims=[0, 1])  # GPT
 SOBEL_Z = SOBEL_X.permute(2, 1, 0)  # GPT
-IDENTITY = torch.zeros((3, 3, 3), dtype=torch.float64)
+IDENTITY = torch.zeros((3, 3, 3), dtype=FLOAT_TYPE)
 IDENTITY[1, 1, 1] = 1
 
 # Create perception layer, consisting of the identity, sobel x, sobel y and laplacian
