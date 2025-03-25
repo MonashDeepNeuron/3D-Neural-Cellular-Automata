@@ -182,11 +182,15 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
             if DEBUG_MODE == Debug.VERBOSE:
                 print(f"epoch {epoch+1}/{EPOCHS} loss = {losses}")
             elif DEBUG_MODE == Debug.CONCISE:
-                print(f"epoch {epoch+1}/{EPOCHS}", end="\n    ")
-                print(f"mean loss = {np.mean(losses)}", end="\n    ")
-                print(f"std loss = {np.std(losses)}", end="\n    ")
-                print(f"min loss = {np.min(losses)}", end="\n    ")
-                print(f"max loss = {np.max(losses)}", end="\n")
+                print(f"""
+                Epoch {epoch + 1}/{EPOCHS}
+                    Mean loss = {np.mean(losses):.4e}
+                    Std loss  = {np.std(losses):.4e}
+                    Min loss  = {np.min(losses):.4e}
+                    Max loss  = {np.max(losses):.4e}
+                """.strip().replace(" "*16, "    "))
+            training_losses.append(np.mean(losses))
+
     except KeyboardInterrupt:
         pass
 
@@ -210,7 +214,7 @@ def initialiseGPU(model):
 
 if __name__ == "__main__":
 
-    DEBUG_MODE = Debug.CONCISE
+    DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
 
     torch.manual_seed(0)
     TRAINING = True
@@ -219,7 +223,7 @@ if __name__ == "__main__":
     VOXEL_PATH_NAME = "donut"
 
     MODEL = NCA_3D()
-    EPOCHS = 50
+    EPOCHS = 40
     BATCH_SIZE = 32
     UPDATES_RANGE = [64, 96]
 
@@ -239,6 +243,21 @@ if __name__ == "__main__":
             )
         MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE)
         torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+
+        # Plot losses, and save to loss.png
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+
+        ax.cla()
+        ax.set_yscale('log')
+        ax.set_xlim(0, EPOCHS)
+        ax.set_ylim(min(losses), losses[0])
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.set_title('Loss')
+        ax.plot(losses, '.', alpha=0.2)
+        plt.savefig('loss.png')
+        
 
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
