@@ -8,12 +8,17 @@ import numpy as np
 import os
 import matplotlib.animation as animation
 from midvoxio.voxio import vox_to_arr
-
+from enum import Enum
 """
 target_voxel : rgba, x, y, z
 seed: rgba, x, y, z
 output: batch, rgba, x, y, z
 """
+
+class Debug(Enum):
+    OFF = 0
+    VERBOSE = 1
+    CONCISE = 2
 
 if torch.cuda.is_available():
     torch.set_default_device("cuda")
@@ -155,11 +160,10 @@ def update_pass(model, batch, target_voxel, optimiser):
         batch_losses[batch_idx] = loss.item()
         loss.backward()
         optimiser.step()
+    return batch_losses.cpu().numpy()
 
-    print(f"batch loss = {batch_losses.cpu().numpy()}")
 
-
-def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False):
+def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False, DEBUG_MODE=Debug.OFF):
     device = next(model.parameters()).device
 
     target_voxel = target_voxel.to(device)
@@ -174,8 +178,15 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False)
             batch = new_seed(target_voxel=target_voxel, batch_size=BATCH_SIZE)
             batch = batch.to(device)
 
-            update_pass(model, batch, target_voxel, optimiser)
-
+            losses = update_pass(model, batch, target_voxel, optimiser)
+            if DEBUG_MODE == Debug.VERBOSE:
+                print(f"epoch {epoch+1}/{EPOCHS} loss = {losses}")
+            elif DEBUG_MODE == Debug.CONCISE:
+                print(f"epoch {epoch+1}/{EPOCHS}", end="\n    ")
+                print(f"mean loss = {np.mean(losses)}", end="\n    ")
+                print(f"std loss = {np.std(losses)}", end="\n    ")
+                print(f"min loss = {np.min(losses)}", end="\n    ")
+                print(f"max loss = {np.max(losses)}", end="\n")
     except KeyboardInterrupt:
         pass
 
@@ -198,6 +209,9 @@ def initialiseGPU(model):
 
 
 if __name__ == "__main__":
+
+    DEBUG_MODE = Debug.CONCISE
+
     torch.manual_seed(0)
     TRAINING = True
     GRID_SIZE = 32
@@ -223,7 +237,7 @@ if __name__ == "__main__":
             MODEL.load_state_dict(
                 torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
             )
-        MODEL, losses = train(MODEL, target_voxel, optimizer)
+        MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE)
         torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
     # ## Switch state to evaluation to disable dropout e.g.
