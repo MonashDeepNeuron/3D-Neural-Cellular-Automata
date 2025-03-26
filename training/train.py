@@ -138,7 +138,6 @@ def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
 
     return state
 
-
 def update_pass(model, batch, target_voxel, optimiser):
     """
     Back calculate gradient and update model paramaters
@@ -217,13 +216,13 @@ if __name__ == "__main__":
     DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
 
     torch.manual_seed(0)
-    TRAINING = True
+    TRAINING = False
     GRID_SIZE = 32
     CHANNELS = 16
     VOXEL_PATH_NAME = "donut"
 
     MODEL = NCA_3D()
-    EPOCHS = 40
+    EPOCHS = 0
     BATCH_SIZE = 32
     UPDATES_RANGE = [64, 96]
 
@@ -236,27 +235,27 @@ if __name__ == "__main__":
     target_voxel = minimise_voxel(target_voxel).cpu()
     # anim = visualise(target_voxel, save=False, show=True)
 
-    if TRAINING:
-        if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
-            MODEL.load_state_dict(
-                torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
-            )
-        MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE)
-        torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+    if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
+        MODEL.load_state_dict(
+            torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
+        )
+    # if TRAINING:
+        # MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE)
+        # torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
-        # Plot losses, and save to loss.png
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
+        # # Plot losses, and save to loss.png
+        # fig = plt.figure()
+        # ax = fig.add_subplot(1, 1, 1)
 
-        ax.cla()
-        ax.set_yscale('log')
-        ax.set_xlim(0, EPOCHS)
-        ax.set_ylim(min(losses), losses[0])
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Loss')
-        ax.set_title('Loss')
-        ax.plot(losses, '.', alpha=0.2)
-        plt.savefig('loss.png')
+        # ax.cla()
+        # ax.set_yscale('log')
+        # ax.set_xlim(0, EPOCHS)
+        # ax.set_ylim(min(losses), losses[0])
+        # ax.set_xlabel('Epoch')
+        # ax.set_ylabel('Loss')
+        # ax.set_title('Loss')
+        # ax.plot(losses, '.', alpha=0.2)
+        # plt.savefig('loss.png')
         
 
     # ## Switch state to evaluation to disable dropout e.g.
