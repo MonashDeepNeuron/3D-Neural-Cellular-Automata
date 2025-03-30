@@ -9,6 +9,7 @@ import os
 import matplotlib.animation as animation
 from midvoxio.voxio import vox_to_arr
 from enum import Enum
+from loss import lossFn
 """
 target_voxel : rgba, x, y, z
 seed: rgba, x, y, z
@@ -193,7 +194,7 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
                     Max loss  = {np.max(losses):.4e}
                 """.strip().replace(" "*16, "    "))
             
-            recordRate = 100 # Loss graph will be updated every x epochs, and model will be saved every x epochs.
+            recordRate = 5 # Loss graph will be updated every x epochs, and model will be saved every x epochs.
             if epoch % recordRate == 0 and epoch != 0:
                 print(f"saving model, epoch: {epoch}")
                 torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
@@ -213,8 +214,10 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
                     with open("losses.txt", "a") as f:
                         losses_str = ""
                         for i in range(BATCH_SIZE):
-                            losses_str += ",".join(f"{loss:.6f}" for loss in training_losses[i][-recordRate:-1])
-                        f.write(losses + "\n")
+                            # losses_str += ",".join(f"{loss:.6f}" for loss in training_losses[i][-recordRate:-1])
+                            pass
+
+                        # f.write(losses + "\n")
 
 
     except KeyboardInterrupt:
@@ -241,7 +244,7 @@ def initialiseGPU(model):
 if __name__ == "__main__":
 
     DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
-    LOSS_LOGGING = True
+    LOSS_LOGGING = False
 
 
     torch.manual_seed(0)
@@ -251,14 +254,17 @@ if __name__ == "__main__":
     VOXEL_PATH_NAME = "potted_flower"
 
     MODEL = NCA_3D()
-    EPOCHS = 5
+    EPOCHS = 15
     BATCH_SIZE = 4
     UPDATES_RANGE = [64, 96]
 
     LR = 1e-3
     initialiseGPU(MODEL)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
-    LOSS_FN = torch.nn.MSELoss(reduction="mean")
+    
+    # LOSS_FN = torch.nn.MSELoss(reduction="mean")
+    LOSS_FN = lossFn
+    
 
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")    
     target_voxel = minimise_voxel(target_voxel).cpu()
