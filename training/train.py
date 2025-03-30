@@ -96,7 +96,7 @@ def new_seed(target_voxel, batch_size=1):
     # seed[:, 3, SHAPE[1] // 2, SHAPE[2] // 2, 0] = (
     #     1  #  Alpha channel = 3 (as 4th value in RGBA channel)
     # )
-    seed[:, 3, SHAPE[1]-4, SHAPE[2]-4, 0] = (
+    seed[:, 3, SHAPE[1]//2, SHAPE[2]//2, 0] = (
         1  #  Alpha channel = 3 (as 4th value in RGBA channel)
     )
     return seed
@@ -138,6 +138,7 @@ def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
 
     return state
 
+
 def update_pass(model, batch, target_voxel, optimiser):
     """
     Back calculate gradient and update model paramaters
@@ -178,6 +179,9 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
             batch = batch.to(device)
 
             losses = update_pass(model, batch, target_voxel, optimiser)
+            training_losses.append(np.mean(losses))
+            
+            # Print loss statistics
             if DEBUG_MODE == Debug.VERBOSE:
                 print(f"epoch {epoch+1}/{EPOCHS} loss = {losses}")
             elif DEBUG_MODE == Debug.CONCISE:
@@ -188,7 +192,30 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
                     Min loss  = {np.min(losses):.4e}
                     Max loss  = {np.max(losses):.4e}
                 """.strip().replace(" "*16, "    "))
-            training_losses.append(np.mean(losses))
+            
+            recordRate = 100 # Loss graph will be updated every x epochs, and model will be saved every x epochs.
+            if epoch % recordRate == 0 and epoch != 0:
+                print(f"saving model, epoch: {epoch}")
+                torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+                fig = plt.figure()
+                ax = fig.add_subplot(1, 1, 1)
+
+                ax.cla()
+                ax.set_yscale('log')
+                ax.set_xlim(0, epoch)
+                ax.set_ylim(min(training_losses), training_losses[0])
+                ax.set_xlabel('Epoch')
+                ax.set_ylabel('Loss')
+                ax.set_title('Loss')
+                ax.plot(training_losses, '.', alpha=0.2)
+                plt.savefig('loss.png')
+                if LOSS_LOGGING:
+                    with open("losses.txt", "a") as f:
+                        losses_str = ""
+                        for i in range(BATCH_SIZE):
+                            losses_str += ",".join(f"{loss:.6f}" for loss in training_losses[i][-recordRate:-1])
+                        f.write(losses + "\n")
+
 
     except KeyboardInterrupt:
         pass
@@ -214,16 +241,18 @@ def initialiseGPU(model):
 if __name__ == "__main__":
 
     DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
+    LOSS_LOGGING = True
+
 
     torch.manual_seed(0)
-    TRAINING = False
+    TRAINING = True
     GRID_SIZE = 32
     CHANNELS = 16
-    VOXEL_PATH_NAME = "donut"
+    VOXEL_PATH_NAME = "potted_flower"
 
     MODEL = NCA_3D()
-    EPOCHS = 0
-    BATCH_SIZE = 32
+    EPOCHS = 5
+    BATCH_SIZE = 4
     UPDATES_RANGE = [64, 96]
 
     LR = 1e-3
@@ -234,28 +263,29 @@ if __name__ == "__main__":
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")    
     target_voxel = minimise_voxel(target_voxel).cpu()
     # anim = visualise(target_voxel, save=False, show=True)
-
+    
     if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
         MODEL.load_state_dict(
             torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
-        )
-    # if TRAINING:
-        # MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE)
-        # torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+    )
 
-        # # Plot losses, and save to loss.png
-        # fig = plt.figure()
-        # ax = fig.add_subplot(1, 1, 1)
+    if TRAINING:
+        MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE)
+        torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
-        # ax.cla()
-        # ax.set_yscale('log')
-        # ax.set_xlim(0, EPOCHS)
-        # ax.set_ylim(min(losses), losses[0])
-        # ax.set_xlabel('Epoch')
-        # ax.set_ylabel('Loss')
-        # ax.set_title('Loss')
-        # ax.plot(losses, '.', alpha=0.2)
-        # plt.savefig('loss.png')
+        # Plot losses, and save to loss.png
+        fig = plt.figure()
+        ax = fig.add_subplot(1, 1, 1)
+
+        ax.cla()
+        ax.set_yscale('log')
+        ax.set_xlim(0, EPOCHS)
+        ax.set_ylim(min(losses), losses[0])
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Loss')
+        ax.set_title('Loss')
+        ax.plot(losses, '.', alpha=0.2)
+        plt.savefig('loss.png')
         
 
     # ## Switch state to evaluation to disable dropout e.g.
