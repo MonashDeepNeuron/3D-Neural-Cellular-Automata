@@ -211,13 +211,9 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
                 ax.plot(training_losses, '.', alpha=0.2)
                 plt.savefig('loss.png')
                 if LOSS_LOGGING:
-                    with open("losses.txt", "a") as f:
-                        losses_str = ""
-                        for i in range(BATCH_SIZE):
-                            # losses_str += ",".join(f"{loss:.6f}" for loss in training_losses[i][-recordRate:-1])
-                            pass
-
-                        # f.write(losses + "\n")
+                    with open("losses.csv", "a") as f:
+                        losses_str = ",".join(f"{loss:.6f}" for loss in training_losses[-recordRate-1 :-1])
+                        f.write(losses_str)
 
 
     except KeyboardInterrupt:
@@ -244,7 +240,7 @@ def initialiseGPU(model):
 if __name__ == "__main__":
 
     DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
-    LOSS_LOGGING = False
+    LOSS_LOGGING = True
 
 
     torch.manual_seed(0)
@@ -254,17 +250,16 @@ if __name__ == "__main__":
     VOXEL_PATH_NAME = "potted_flower"
 
     MODEL = NCA_3D()
-    EPOCHS = 15
-    BATCH_SIZE = 4
+    EPOCHS = 5000
+    BATCH_SIZE = 2
     UPDATES_RANGE = [64, 96]
 
-    LR = 1e-3
+    LR = 1e-4 # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
     initialiseGPU(MODEL)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     
     # LOSS_FN = torch.nn.MSELoss(reduction="mean")
     LOSS_FN = lossFn
-    
 
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")    
     target_voxel = minimise_voxel(target_voxel).cpu()
@@ -293,7 +288,6 @@ if __name__ == "__main__":
         ax.plot(losses, '.', alpha=0.2)
         plt.savefig('loss.png')
         
-
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
 
