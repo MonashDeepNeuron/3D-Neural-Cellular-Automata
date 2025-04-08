@@ -164,13 +164,12 @@ def update_pass(model, batch, target_voxel, optimiser):
     return batch_losses.cpu().numpy()
 
 
-def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False, DEBUG_MODE=Debug.OFF):
+def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False, DEBUG_MODE=Debug.OFF, training_losses=[]):
     device = next(model.parameters()).device
 
     target_voxel = target_voxel.to(device)
 
     try:
-        training_losses = []
         for epoch in range(EPOCHS):
             model.train()
             if record:
@@ -212,7 +211,7 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
                 plt.savefig('loss.png')
                 if LOSS_LOGGING:
                     with open("losses.csv", "a") as f:
-                        losses_str = ",".join(f"{loss:.6f}" for loss in training_losses[-recordRate-1 :-1])
+                        losses_str = ",".join(f"{loss:.6f}" for loss in training_losses[-recordRate-1 :-1]) +","
                         f.write(losses_str)
 
 
@@ -236,6 +235,25 @@ def initialiseGPU(model):
     model = model.to(device)
     return model
 
+def getLosses(fileName="losses.csv"):
+    losses = []
+
+    if not os.path.exists(fileName):
+        print("No existing losses detected")
+        return []
+    try:
+        with open(fileName, mode="r") as file:
+            while True:
+                buffer = file.read(8) # Load float into buffer
+                if not buffer: # exit if EOF
+                    break
+
+                file.read(1) # skip the comma
+                losses.append(float(buffer))
+    except ValueError:
+        print("Losses file corrupted")
+        return []
+    return losses
 
 if __name__ == "__main__":
 
@@ -271,7 +289,8 @@ if __name__ == "__main__":
     )
 
     if TRAINING:
-        MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE)
+        losses = getLosses()
+        MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE, training_losses=losses)
         torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
         # Plot losses, and save to loss.png
