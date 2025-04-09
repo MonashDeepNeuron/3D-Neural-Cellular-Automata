@@ -202,8 +202,8 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
 
                 ax.cla()
                 ax.set_yscale('log')
-                ax.set_xlim(0, epoch)
-                ax.set_ylim(min(training_losses), training_losses[0])
+                ax.set_xlim(0, len(training_losses))
+                ax.set_ylim(min(training_losses), max(training_losses))
                 ax.set_xlabel('Epoch')
                 ax.set_ylabel('Loss')
                 ax.set_title('Loss')
