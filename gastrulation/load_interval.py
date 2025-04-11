@@ -584,7 +584,7 @@ def create_frame(iteration, csv_path):
     plt.close()
 
 def main2():
-    csv_path = "./Database.csv"
+    csv_path = "./Database.csv" 
     start_frame = int(input("Enter the start frame: "))
     end_frame = int(input("Enter the end frame: "))
 
