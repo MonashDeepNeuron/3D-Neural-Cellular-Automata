@@ -15,7 +15,7 @@ def lossFn(output, target):
     iou_loss = (union - intersect) / (union + 1e-8)
 
     ## 3. calculate the MSE loss for RGB channels of pixels that have an alpha channel == 1
-    mse_loss = torch.nn.MSELoss(reduction="mean")(output, target)
+    mse_loss = torch.nn.MSELoss(reduction="mean")(output[0:3,:,:,:], target[0:3,:,:,:])
 
     ## Calculate the overall loss that is the sum of the IOU loss and MSE loss 
-    return (0.9*iou_loss + 0.1*mse_loss)/2.0 #(float32 with grad function) /2.0
+    return (iou_loss*0.05 + mse_loss*0.95) #(float32 with grad function) /2.0
