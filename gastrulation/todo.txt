@@ -1,7 +1,0 @@
-- make a function that gets a specific time interval for the voxel (done)
-- correct colouring system
-
-- picture of visualisation like a save and writing system
-- video visualisation of original video
-
-- make the grid size dependent on absolute maximum and absolute minimum.

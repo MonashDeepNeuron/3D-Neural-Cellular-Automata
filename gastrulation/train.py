@@ -88,6 +88,7 @@ def new_seed(target_voxel, batch_size=1):
     seed = torch.zeros(batch_size, CHANNELS, SHAPE[1], SHAPE[2], SHAPE[3])
 
     ## Batch, channels, x, y, z
+    # channels: r, g, b, a, 12 more
     # seed[:, 3, SHAPE[1] // 2, SHAPE[2] // 2, 0] = (
     #     1  #  Alpha channel = 3 (as 4th value in RGBA channel)
     # )
