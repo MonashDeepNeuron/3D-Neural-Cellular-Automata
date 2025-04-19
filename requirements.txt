@@ -1,0 +1,9 @@
+torch
+numpy
+matplotlib
+trimesh
+plotly
+seaborn
+ipython
+moviepy==1.0.3
+midvoxio
