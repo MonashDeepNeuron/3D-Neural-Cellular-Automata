@@ -9,6 +9,7 @@ import numpy as np
 import os
 import matplotlib.animation as animation
 from midvoxio.voxio import vox_to_arr
+import timeit
 
 
 def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
@@ -164,7 +165,7 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
 
     # target_voxel = target_voxels[-1]
     # target_voxel = target_voxel.to(device)
-
+    start = timeit.timeit()
     try:
         training_losses = []
         for epoch in range(EPOCHS):
@@ -187,7 +188,8 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
             training_losses.append(loss)
     except KeyboardInterrupt:
         pass
-
+    end = timeit.timeit()
+    print(f"Time taken to train for epoch {epoch} is", end - start, "seconds")
     if record:
         return (model, training_losses, outputs)
     else:
@@ -216,8 +218,7 @@ if __name__ == "__main__":
     OUTPUT_NAME = "EMBRYO"
 
     MODEL = NCA_3D()
-    EPOCHS = 100 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
-    EPOCHS = 10
+    EPOCHS = 20 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
     BATCH_SIZE = 32
     UPDATES_RANGE = [64, 96]
 
