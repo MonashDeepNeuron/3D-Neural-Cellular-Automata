@@ -11,6 +11,55 @@ import matplotlib.animation as animation
 from midvoxio.voxio import vox_to_arr
 
 
+def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="3d")
+
+    ## If imgTensor does not have batch dimension, add batch dimension of size 1
+    if imgTensor.ndim < 5:
+        imgTensor = imgTensor.unsqueeze(0)
+
+    ## Permute the tensor to (batch, x, y, z, channel) from (batch, channel, x, y, z)
+    imgTensor = imgTensor.permute(0, 2, 3, 4, 1)
+
+    ## Convert tensor to numpy array (as otherwise matplotlib cannot transpose it (when moveaxis is used))
+    imgTensor = imgTensor.detach().numpy()
+
+    ## Voxels look like they have their x and y swapped when plotted with matplotlib, so swap them for visualisation
+    imgTensor = np.moveaxis(imgTensor, (1, 2), (1, 2))
+
+    ## Calculate minimum edge length to ensure all voxels are cuboid
+    ax.set_box_aspect(imgTensor.shape[1:4] / np.max(imgTensor.shape[1:4]))
+
+    def update(imgIdx):
+        ax.cla()
+        ax.set_xlim([0, imgTensor.shape[1]])
+        ax.set_ylim([0, imgTensor.shape[2]])
+        ax.set_zlim([0, imgTensor.shape[3]])
+
+        alpha = imgTensor[imgIdx, :, :, :, 0]  # Alpha = channel 0
+        filled = alpha > 0.05  # Visibility threshold
+
+        # Fixed black color with full opacity
+        color = np.zeros((*alpha.shape, 4))
+        color[..., 3] = 1.0  # Alpha channel = 1 (opaque)
+
+        ax.voxels(filled=filled, facecolors=color)
+        ax.set_title(f"Frame {imgIdx}")
+
+    if save:
+        ani = animation.FuncAnimation(fig, update, frames=len(imgTensor), repeat=False)
+        writer = animation.PillowWriter(fps=5, metadata=dict(artist="Me"), bitrate=1800)
+        ani.save(filenameBase + ".gif", writer=writer)
+
+    if show:
+        update(0)
+        plt.show()
+        plt.close()
+
+    return
+
+
 frames = preprocess()
 print(f'{frames[0].shape = }')
 print(f'{len(frames) = }')
@@ -22,8 +71,25 @@ def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
     If `record` is true, then records the state in a tensor to animate and saves the video
     Returns the final state
     """
-    for i in range(updates):
-        state = model(state)
+    if record:
+        frames_array = Tensor(
+            updates,
+            CHANNELS,
+            # THIS MIGHT NEED TO CHANGE IM NOT SURE IF THIS IS RIGHT! (32,32,32 it was target_voxel.shape[1], 2 and 3 before...)
+            32,
+            32,
+            32,
+        )
+        for i in range(updates):
+            state = model(state)
+            print("processed state shape is", state.shape)
+            frames_array[i] = state[0]
+        return frames_array
+
+    else:
+        for i in range(updates):
+            state = model(state)
+
     return state
 
 
@@ -151,6 +217,7 @@ if __name__ == "__main__":
 
     MODEL = NCA_3D()
     EPOCHS = 100 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
+    EPOCHS = 10
     BATCH_SIZE = 32
     UPDATES_RANGE = [64, 96]
 
@@ -170,4 +237,15 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.tight_layout()
         plt.savefig("training_loss.png")
-        plt.show()
+        # plt.show()
+
+           # ## Switch state to evaluation to disable dropout e.g.
+    print("EVAL MODE")
+    MODEL.eval()
+
+    # ## Plot final state of evaluation OR evaluation animation
+    img = frames[0]
+    print("FORWARD PASSING")
+    model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
+    print("VISUALISING")
+    anim = visualise(model_generated_voxel, save=True, show=False)
