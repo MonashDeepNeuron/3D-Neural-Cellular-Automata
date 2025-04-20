@@ -1,4 +1,4 @@
-from preprocessing import preprocessing
+from preprocessing import preprocess
 from torch import Tensor
 import torch
 import torch.nn as nn
@@ -11,8 +11,9 @@ import matplotlib.animation as animation
 from midvoxio.voxio import vox_to_arr
 
 
-frames = preprocessing()
+frames = preprocess()
 print(f'{frames[0].shape = }')
+print(f'{len(frames) = }')
 
 
 def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
@@ -24,7 +25,6 @@ def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
     for i in range(updates):
         state = model(state)
     return state
-
 
 
 def update_pass(model, batch, target_voxel, optimiser):
@@ -42,35 +42,83 @@ def update_pass(model, batch, target_voxel, optimiser):
         )
 
         ## Apply voxel-wise MSE loss between RGBA channels in the grid and the target_voxel pattern
-        output = output[0:1, :, :, :]
-        target_voxel = target_voxel[:, 0:1]
+        output = output[:, 0:1, :, :, :]
+        target_voxel = target_voxel[0:1, 0:1, :, :, :]
+
+        # print(f"Batch index: {batch_idx}")
+        # print(f"Output shape: {output.shape}")
+        # print(f"Target voxel shape: {target_voxel[batch_idx:batch_idx+1, 0:1, :, :, :].shape}")
 
         loss = LOSS_FN(output, target_voxel)
         batch_losses[batch_idx] = loss.item()
         loss.backward()
         optimiser.step()
 
-    print(f"batch loss = {batch_losses.cpu().numpy()}")
+    # print loss as a percentage 
+    print(f"BATCH LOSS = {batch_losses.cpu().numpy().mean() * 100:.4f}%")
+    return batch_losses.cpu().numpy().mean()
+
+def get_batch(target_index):
+    """
+    Get a batch for the input of training. Current implementation is 
+    1/4 is the seed image (start image ) to the target
+    1/2 is random images between start and target idx - 1 -> target
+    1/4 is target-1 -> target
+
+    This is more experiemental to see how the model will learn.
+    Right now i also think that this will only work for a batch size of 32 since 
+    that is what matches the framesoutput from preprocessing. This should change here in the 
+    indexing we dont need to change preprocessing probably.
+    """
+    batch_images = []
+    quarter = BATCH_SIZE//4
+    if target_index == 0:
+        return frames[0]
+    else:
+        for i in range(BATCH_SIZE):
+            if i < quarter:
+                img = frames[0][i]
+            elif i < quarter * 3:
+                rand_idx = random.randint(0, target_index - 1)
+                img = frames[rand_idx][i]
+            else:
+                img = frames[target_index -1][i]
+            batch_images.append(img)
+        output = torch.stack(batch_images)
+        print("BATCH IMAGES AFTER USING GET_BATCH FUNCTION IS", output.shape)
+        return output
+
 
 def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False):
     device = next(model.parameters()).device
     print(device)
-    target_voxel = target_voxels[-1]
-    target_voxel = target_voxel.to(device)
+    # target voxel is modulo length of data where half of batch is 1 -> this image 
+    # and the other half is -1 of this image -> this image 
+    # for example say we are up to epoch 471 
+
+    # target_voxel = target_voxels[-1]
+    # target_voxel = target_voxel.to(device)
 
     try:
         training_losses = []
         for epoch in range(EPOCHS):
+            # eg epoch = 571, frames_length = 265; 571 % 265 = 41
+            target_index  = epoch % FRAMES_LENGTH
+            target_voxel = target_voxels[target_index]
+            target_voxel = target_voxel.to(device)
+
             model.train()
             if record:
                 outputs = torch.zeros_like(batch)
 
-            batch = frames[0]
+            # first quater frames are the input image, then the remaining 3/4 are random indexes between index 0 and current target index
+            batch = get_batch(target_index)
+            # batch = frames[0]
             batch = batch.to(device)
-            print(batch.shape)
+            print("BATCH SHAPE IS: ", batch.shape)
             assert batch.shape == target_voxel.shape
-            update_pass(model, batch, target_voxel, optimiser)
-
+            loss = update_pass(model, batch, target_voxel, optimiser)
+            training_losses.append(loss)
     except KeyboardInterrupt:
         pass
 
@@ -95,21 +143,31 @@ def initialiseGPU(model):
 if __name__ == "__main__":
     TRAINING = True
     torch.manual_seed(0)
+    FRAMES_LENGTH = 265
     TRAINING = True
     GRID_SIZE = 32
     CHANNELS = 16
-    VOXEL_PATH_NAME = "donut"
+    OUTPUT_NAME = "EMBRYO"
 
     MODEL = NCA_3D()
-    EPOCHS = 50
+    EPOCHS = 100 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
     BATCH_SIZE = 32
     UPDATES_RANGE = [64, 96]
 
-    LR = 1e-3
+    LR = 1e-4
     initialiseGPU(MODEL)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
 
     if TRAINING:
         MODEL, losses = train(MODEL, frames, optimizer)
-        torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+
+        torch.save(MODEL.state_dict(), f"{OUTPUT_NAME}.pth")
+        plt.plot(losses)
+        plt.title("Training Loss over Epochs")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig("training_loss.png")
+        plt.show()

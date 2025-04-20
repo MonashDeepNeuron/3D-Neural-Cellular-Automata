@@ -149,7 +149,8 @@ def preprocessing():
         voxels.append(three_dee)
 
 
-    max_val = max([np.max(x) for x in voxels])
+    max_val = max([np.max(voxel) for voxel in voxels])
+    voxels = [voxel/max_val for voxel in voxels]
     # print(max_val)
 
     if max_val > 0:  # Avoid division by zero
@@ -172,15 +173,19 @@ def preprocessing():
     return images
 
 def preprocess():
-    csv_path = "/Users/ncul0004/3D-Neural-Cellular-Automata/gastrulation/Database.csv"
-    tensor_path = "/Users/ncul0004/3D-Neural-Cellular-Automata/gastrulation/NATHANS-TWO-BLACK-LESBIAN-MOTHERS"
+    tensor_path = "gastrulation/iterations"
+    if os.path.exists(tensor_path):
+        print("File exists")
+        try:
+            print("Attempting to fetch data from file")
+            return torch.load(tensor_path)
+        except Exception as e:
+            print("Failed to load tensor:", e)
 
-    if os.path.isfile(tensor_path):
-        # Load data into tensor
-        print("exists")
-    else:
-        print("no sir")
-
+    print("No data array, preprocess it all")
+    data = preprocessing()
+    torch.save(data, tensor_path)
+    return data
 
 if __name__ == "__main__":
     preprocess()
