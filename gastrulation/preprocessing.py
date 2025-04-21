@@ -74,15 +74,21 @@ USING IQR WE FOUND 800~ outliers probably bullshit (not actually outliers)
 
 def preprocessing():
 
-    csv_path = "/Users/ncul0004/3D-Neural-Cellular-Automata/gastrulation/Database.csv"
+    csv_path = "./gastrulation/Database.csv"
     df = pd.read_csv(csv_path)
+    print("DATAFRAME IS", df)
+    df.columns = df.columns.str.strip()
+    print("Columns in df:", df.columns.tolist())
 
     # Only keep relevant columns
     data = df[['x', 'y', 'z', 't', 'label', 'id', 'mother_id']].copy()
+    print("called after copy")
 
     Q1 = data[['x', 'y', 'z']].quantile(0.25)
     Q3 = data[['x', 'y', 'z']].quantile(0.75)
     IQR = Q3 - Q1
+
+    print("called IQR")
 
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
@@ -92,9 +98,8 @@ def preprocessing():
     data = data[~((data[
         'z'] < lower_bound['z']) | (data['z'] > upper_bound['z']))]
 
-
-
     for axis in ['x', 'y', 'z']:
+        print("axis", axis)
         data[axis] -= data[axis].mean()
 
     # Global normalization
@@ -103,6 +108,7 @@ def preprocessing():
 
 
     for axis in ['x', 'y', 'z']:
+        print(axis)
         data[axis] = RESO_FUCKING_LUTION* (data[axis] - global_min) / (global_max - global_min)
 
     # Per axis normalisation
@@ -146,6 +152,7 @@ def preprocessing():
         # Normalize the tensor
         # three_dee = three_dee.astype(np.float32) / np.max(three_dee)
         # print(three_dee)
+        print("done iteration", index)
         voxels.append(three_dee)
 
 
@@ -173,7 +180,7 @@ def preprocessing():
     return images
 
 def preprocess():
-    tensor_path = "gastrulation/iterations"
+    tensor_path = "./gastrulation/iterations"
     if os.path.exists(tensor_path):
         print("File exists")
         try:

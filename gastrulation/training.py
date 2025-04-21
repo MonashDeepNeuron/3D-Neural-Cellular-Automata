@@ -9,7 +9,11 @@ import numpy as np
 import os
 import matplotlib.animation as animation
 from midvoxio.voxio import vox_to_arr
-import timeit
+import time 
+
+print("CUDA available:", torch.cuda.is_available())
+print("CUDA version:", torch.version.cuda)
+print("Device:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No CUDA device")
 
 
 def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
@@ -62,6 +66,8 @@ def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
 
 
 frames = preprocess()
+if torch.cuda.is_available():
+    frames = [frame.to(torch.float64) for frame in frames]
 print(f'{frames[0].shape = }')
 print(f'{len(frames) = }')
 
@@ -152,7 +158,7 @@ def get_batch(target_index):
                 img = frames[target_index -1][i]
             batch_images.append(img)
         output = torch.stack(batch_images)
-        print("BATCH IMAGES AFTER USING GET_BATCH FUNCTION IS", output.shape)
+        #print("BATCH IMAGES AFTER USING GET_BATCH FUNCTION IS", output.shape)
         return output
 
 
@@ -165,7 +171,7 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
 
     # target_voxel = target_voxels[-1]
     # target_voxel = target_voxel.to(device)
-    start = timeit.timeit()
+    start = time.time()
     try:
         training_losses = []
         for epoch in range(EPOCHS):
@@ -182,14 +188,23 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
             batch = get_batch(target_index)
             # batch = frames[0]
             batch = batch.to(device)
-            print("BATCH SHAPE IS: ", batch.shape)
+            # print("BATCH SHAPE IS: ", batch.shape)
             assert batch.shape == target_voxel.shape
             loss = update_pass(model, batch, target_voxel, optimiser)
             training_losses.append(loss)
+            
+            # Save model weights after every 265 iterations (or epochs)
+            if epoch % 265 == 0:
+                checkpoint_path = f"model_checkpoint_epoch_{epoch}.pth"
+                torch.save(model.state_dict(), checkpoint_path)
+                print(f"Model weights saved at {checkpoint_path}")
+
+            # Timing for epoch
+            end = time.time()
+            print(f"Time taken to train for epoch {epoch} is {end - start} seconds")
+
     except KeyboardInterrupt:
         pass
-    end = timeit.timeit()
-    print(f"Time taken to train for epoch {epoch} is", end - start, "seconds")
     if record:
         return (model, training_losses, outputs)
     else:
@@ -218,12 +233,13 @@ if __name__ == "__main__":
     OUTPUT_NAME = "EMBRYO"
 
     MODEL = NCA_3D()
-    EPOCHS = 20 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
+    EPOCHS = 10 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
     BATCH_SIZE = 32
     UPDATES_RANGE = [64, 96]
 
     LR = 1e-4
     initialiseGPU(MODEL)
+    print("CPU OR GPU BRUH:", next(MODEL.parameters()).device)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
 
