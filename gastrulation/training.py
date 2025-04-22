@@ -66,8 +66,10 @@ def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
 
 
 frames = preprocess()
+
 if torch.cuda.is_available():
     frames = [frame.to(torch.float64) for frame in frames]
+
 print(f'{frames[0].shape = }')
 print(f'{len(frames) = }')
 
@@ -193,12 +195,18 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
             loss = update_pass(model, batch, target_voxel, optimiser)
             training_losses.append(loss)
             
-            # Save model weights after every 265 iterations (or epochs)
+            # EVERY 265 WE SAVE WEIGHTS AND WRITE A VISUALISE GIF!
             if epoch % 265 == 0:
-                checkpoint_path = f"model_checkpoint_epoch_{epoch}.pth"
+                checkpoint_path = f"UPDATED_model_checkpoint_epoch_{epoch}.pth"
                 torch.save(model.state_dict(), checkpoint_path)
                 print(f"Model weights saved at {checkpoint_path}")
-
+                # VISUALISE AT CHECKPOINT 
+                # with torch.no_grad():
+                #     model.eval()  # Set model to evaluation mode
+                #     #if i can get this to anim = visualise frame[0] that would be good 
+                #     # but having problems with gpu and cpu mixup
+                #     model.train()  # Set model back to training mode
+                #     # make sure to move the model back to CUDA after evaluation
             # Timing for epoch
             end = time.time()
             print(f"Time taken to train for epoch {epoch} is {end - start} seconds")
@@ -231,14 +239,21 @@ if __name__ == "__main__":
     GRID_SIZE = 32
     CHANNELS = 16
     OUTPUT_NAME = "EMBRYO"
+    MODEL_WEIGHTS = "./UPDATED_model_checkpoint_epoch_265.pth"
 
     MODEL = NCA_3D()
-    EPOCHS = 10 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
+    EPOCHS = 1 # 10 * FRAMES_LENGTH # 1 epoch should iterate over the entire dataset.
     BATCH_SIZE = 32
     UPDATES_RANGE = [64, 96]
 
     LR = 1e-4
     initialiseGPU(MODEL)
+    try:
+        MODEL.load_state_dict(torch.load(checkpoint_path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu")))
+        print(f"Loaded model weights from {checkpoint_path}")
+    except:
+        pass
+        
     print("CPU OR GPU BRUH:", next(MODEL.parameters()).device)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
@@ -263,6 +278,6 @@ if __name__ == "__main__":
     # ## Plot final state of evaluation OR evaluation animation
     img = frames[0]
     print("FORWARD PASSING")
-    model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
+    model_generated_voxel = forward_pass(MODEL, img, 200, record=True)
     print("VISUALISING")
     anim = visualise(model_generated_voxel, save=True, show=False)
