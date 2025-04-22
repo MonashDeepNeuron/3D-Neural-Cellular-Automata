@@ -191,6 +191,9 @@ def preprocess():
 
     print("No data array, preprocess it all")
     data = preprocessing()
+    if os.path.exists(tensor_path):
+        os.remove(tensor_path)  
+    print("WRITING SAVE")
     torch.save(data, tensor_path)
     return data
 

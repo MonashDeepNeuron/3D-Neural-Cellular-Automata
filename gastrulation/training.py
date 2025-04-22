@@ -249,8 +249,8 @@ if __name__ == "__main__":
     LR = 1e-4
     initialiseGPU(MODEL)
     try:
-        MODEL.load_state_dict(torch.load(checkpoint_path, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu")))
-        print(f"Loaded model weights from {checkpoint_path}")
+        MODEL.load_state_dict(torch.load(MODEL_WEIGHTS, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu")))
+        print(f"Loaded model weights from {MODEL_WEIGHTS}")
     except:
         pass
         
