@@ -6,7 +6,7 @@ from torch import Tensor
 import os
 import torch
 
-RESO_FUCKING_LUTION = 31
+RESO_FUCKING_LUTION = 15
 
 
 # Load the data
@@ -18,6 +18,7 @@ def visualise(iterations, filenameBase="gastrulation_animation", save=True, show
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111, projection="3d")
     
+    # batch, channels, x, y, z
     # Convert list of 3D iterations to a 4D iterations (time, x, y, z)
     if isinstance(iterations, list):
         tensors_array = np.iterations(iterations)
@@ -74,7 +75,7 @@ USING IQR WE FOUND 800~ outliers probably bullshit (not actually outliers)
 
 def preprocessing():
 
-    csv_path = "./gastrulation/Database.csv"
+    csv_path = "./gastrulation/ReducedDatabase.csv"
     df = pd.read_csv(csv_path)
     print("DATAFRAME IS", df)
     df.columns = df.columns.str.strip()
@@ -148,6 +149,9 @@ def preprocessing():
             y = int(row['y'])
             z = int(row['z'])
             three_dee[x, y, z] += 1  # Increment for density counting
+            if x < 0 or x >= RESO_FUCKING_LUTION or y < 0 or y >= RESO_FUCKING_LUTION or z < 0 or z >= RESO_FUCKING_LUTION:
+                print(f"Out of bounds: x={x}, y={y}, z={z} for index {index} in iteration {index}")
+                continue
         # print(f"Iteration {index}: {len(dataframe)} points, max value in 3D tensor: {np.max(three_dee)}")
         # Normalize the tensor
         # three_dee = three_dee.astype(np.float32) / np.max(three_dee)
@@ -169,7 +173,9 @@ def preprocessing():
     # we are trying to store a list of each input tensor to the model, where each index of this storage is a frame from the mouse embryo development.
     # this should be a tensor which can be inputted/outputted by the model.
     # we want to fit the alpha mask into this input_image variable. 
-    images = [] 
+    #  
+
+    images = []
     
     for tensor in voxels:
         # Create the input_image tensor
@@ -177,20 +183,49 @@ def preprocessing():
         tensor = torch.tensor(tensor, dtype=torch.float32)  # Convert to PyTorch tensor if it's not already
         input_image[:, 0, :, :, :] = tensor  # Assign the 3D tensor to the first channel (alpha mask)
         images.append(input_image)
+
+
+    # Minimise Voxel
+    min_bounds = (RESO_FUCKING_LUTION, RESO_FUCKING_LUTION, RESO_FUCKING_LUTION)
+    max_bounds = (0, 0, 0)
+
+    for iteration in images:
+        non_zeros = torch.nonzero(iteration[0, 0, :, :, :], as_tuple=True)
+        
+        # Update min
+        min_bounds = (
+            min(min_bounds[0], torch.min(non_zeros[0]).item()),
+            min(min_bounds[1], torch.min(non_zeros[1]).item()),
+            min(min_bounds[2], torch.min(non_zeros[2]).item())
+        )
+        
+        # Update max
+        max_bounds = (
+            max(max_bounds[0], torch.max(non_zeros[0]).item()),
+            max(max_bounds[1], torch.max(non_zeros[1]).item()),
+            max(max_bounds[2], torch.max(non_zeros[2]).item())
+        )
+    
+    # Apply min bounds
+    images = [iteration[:, :, min_bounds[0]:max_bounds[0]+1, min_bounds[1]:max_bounds[1]+1, min_bounds[2]:max_bounds[2]+1] for iteration in images]
+
     return images
+
+
 
 def preprocess():
     tensor_path = "./gastrulation/iterations"
-    if os.path.exists(tensor_path):
-        print("File exists")
-        try:
-            print("Attempting to fetch data from file")
-            return torch.load(tensor_path)
-        except Exception as e:
-            print("Failed to load tensor:", e)
+    # if os.path.exists(tensor_path):
+    #     print("File exists")
+    #     try:
+    #         print("Attempting to fetch data from file")
+    #         return torch.load(tensor_path)
+    #     except Exception as e:
+    #         print("Failed to load tensor:", e)
 
     print("No data array, preprocess it all")
     data = preprocessing()
+    # visualise(data, save=False, show=True)
     if os.path.exists(tensor_path):
         os.remove(tensor_path)  
     print("WRITING SAVE")

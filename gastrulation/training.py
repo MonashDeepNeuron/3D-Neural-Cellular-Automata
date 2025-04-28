@@ -81,13 +81,15 @@ def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
     Returns the final state
     """
     if record:
+        # Num batches is disregarded
+        _, channels, x_dim, y_dim, z_dim = state.shape
+
         frames_array = Tensor(
             updates,
-            CHANNELS,
-            # THIS MIGHT NEED TO CHANGE IM NOT SURE IF THIS IS RIGHT! (32,32,32 it was target_voxel.shape[1], 2 and 3 before...)
-            32,
-            32,
-            32,
+            channels, # small thing here but would it be best practice to use the global variable channels or the unpacked variable?
+            x_dim,
+            y_dim,
+            z_dim,
         )
         for i in range(updates):
             state = model(state)
@@ -248,32 +250,32 @@ if __name__ == "__main__":
 
     LR = 1e-4
     initialiseGPU(MODEL)
-    try:
-        MODEL.load_state_dict(torch.load(MODEL_WEIGHTS, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu")))
-        print(f"Loaded model weights from {MODEL_WEIGHTS}")
-    except:
-        pass
+    # try:
+    #     MODEL.load_state_dict(torch.load(MODEL_WEIGHTS, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu")))
+    #     print(f"Loaded model weights from {MODEL_WEIGHTS}")
+    # except:
+    #     pass
         
     print("CPU OR GPU BRUH:", next(MODEL.parameters()).device)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
 
-    if TRAINING:
-        MODEL, losses = train(MODEL, frames, optimizer)
+    # if TRAINING:
+    #     MODEL, losses = train(MODEL, frames, optimizer)
 
-        torch.save(MODEL.state_dict(), f"{OUTPUT_NAME}.pth")
-        plt.plot(losses)
-        plt.title("Training Loss over Epochs")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.grid(True)
-        plt.tight_layout()
-        plt.savefig("training_loss.png")
-        # plt.show()
+    #     torch.save(MODEL.state_dict(), f"{OUTPUT_NAME}.pth")
+    #     plt.plot(losses)
+    #     plt.title("Training Loss over Epochs")
+    #     plt.xlabel("Epoch")
+    #     plt.ylabel("Loss")
+    #     plt.grid(True)
+    #     plt.tight_layout()
+    #     plt.savefig("training_loss.png")
+    #     # plt.show()
 
-           # ## Switch state to evaluation to disable dropout e.g.
-    print("EVAL MODE")
-    MODEL.eval()
+    #        # ## Switch state to evaluation to disable dropout e.g.
+    # print("EVAL MODE")
+    # MODEL.eval()
 
     # ## Plot final state of evaluation OR evaluation animation
     img = frames[0]
