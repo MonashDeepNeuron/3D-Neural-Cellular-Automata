@@ -17,6 +17,10 @@ print("Device:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else
 
 
 def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
+
+    if isinstance(imgTensor, list):
+        imgTensor = torch.cat([frame[0:1] for frame in imgTensor], dim=0)
+    
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
@@ -260,24 +264,25 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
 
-    # if TRAINING:
-    #     MODEL, losses = train(MODEL, frames, optimizer)
+    if TRAINING:
+        MODEL, losses = train(MODEL, frames, optimizer)
 
-    #     torch.save(MODEL.state_dict(), f"{OUTPUT_NAME}.pth")
-    #     plt.plot(losses)
-    #     plt.title("Training Loss over Epochs")
-    #     plt.xlabel("Epoch")
-    #     plt.ylabel("Loss")
-    #     plt.grid(True)
-    #     plt.tight_layout()
-    #     plt.savefig("training_loss.png")
-    #     # plt.show()
+        torch.save(MODEL.state_dict(), f"{OUTPUT_NAME}.pth")
+        plt.plot(losses)
+        plt.title("Training Loss over Epochs")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig("training_loss.png")
+        # plt.show()
 
     #        # ## Switch state to evaluation to disable dropout e.g.
-    # print("EVAL MODE")
-    # MODEL.eval()
+    print("EVAL MODE")
+    MODEL.eval()
 
     # ## Plot final state of evaluation OR evaluation animation
+
     img = frames[0]
     print("FORWARD PASSING")
     model_generated_voxel = forward_pass(MODEL, img, 200, record=True)

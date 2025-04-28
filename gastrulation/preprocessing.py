@@ -21,7 +21,7 @@ def visualise(iterations, filenameBase="gastrulation_animation", save=True, show
     # batch, channels, x, y, z
     # Convert list of 3D iterations to a 4D iterations (time, x, y, z)
     if isinstance(iterations, list):
-        tensors_array = np.iterations(iterations)
+        tensors_array = np.array(iterations)
     else:
         tensors_array = iterations
         
@@ -230,6 +230,7 @@ def preprocess():
         os.remove(tensor_path)  
     print("WRITING SAVE")
     torch.save(data, tensor_path)
+
     return data
 
 if __name__ == "__main__":
