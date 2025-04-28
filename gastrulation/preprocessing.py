@@ -75,7 +75,7 @@ USING IQR WE FOUND 800~ outliers probably bullshit (not actually outliers)
 
 def preprocessing():
 
-    csv_path = "./gastrulation/ReducedDatabase.csv"
+    csv_path = "./gastrulation/Database.csv"
     df = pd.read_csv(csv_path)
     print("DATAFRAME IS", df)
     df.columns = df.columns.str.strip()
@@ -215,13 +215,13 @@ def preprocessing():
 
 def preprocess():
     tensor_path = "./gastrulation/iterations"
-    # if os.path.exists(tensor_path):
-    #     print("File exists")
-    #     try:
-    #         print("Attempting to fetch data from file")
-    #         return torch.load(tensor_path)
-    #     except Exception as e:
-    #         print("Failed to load tensor:", e)
+    if os.path.exists(tensor_path):
+        print("File exists")
+        try:
+            print("Attempting to fetch data from file")
+            return torch.load(tensor_path)
+        except Exception as e:
+            print("Failed to load tensor:", e)
 
     print("No data array, preprocess it all")
     data = preprocessing()
