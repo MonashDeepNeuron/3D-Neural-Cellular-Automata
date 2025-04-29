@@ -6,10 +6,10 @@ from model import NCA_3D
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import matplotlib.animation as animation
-from midvoxio.voxio import vox_to_arr
-import time 
+import time     
+from loss import lossFn 
+
 
 print("CUDA available:", torch.cuda.is_available())
 print("CUDA version:", torch.version.cuda)
@@ -131,41 +131,26 @@ def update_pass(model, batch, updates, target_voxel, optimiser):
             updates = updates[batch_idx]
         )
 
-        ## Apply voxel-wise MSE loss between RGBA channels in the grid and the target_voxel pattern
-        output = output[:, 0:1, :, :, :]
-
+        # Previously, when we detached the output from the model with the line below, we lost connection to the model. (we don't want that apparently)
+        # BAD: output = output.clone().detach().requires_grad_(True)
+        output_alpha = output[batch_idx:batch_idx+1, 0:1, :, :, :]
+        
         # The target voxel will be a batch, so extract the batch, and then extract alpha values
-        target_voxel = target_voxel[0:1, 0:1, :, :, :] 
+        target = target_voxel[batch_idx:batch_idx+1, 0:1, :, :, :]
 
-        # print(f"Batch index: {batch_idx}")
-        # print(f"Output shape: {output.shape}")
-        # print(f"Target voxel shape: {target_voxel[batch_idx:batch_idx+1, 0:1, :, :, :].shape}")
-        loss = LOSS_FN(output, target_voxel)
+        loss = LOSS_FN(output_alpha, target)
+
         batch_losses[batch_idx] = loss.item()
         loss.backward()
         optimiser.step()
 
-    # print loss as a percentage 
-    # print(f"BATCH LOSS = {batch_losses.cpu().numpy().mean() * 100:.4f}%")
     return batch_losses.cpu().numpy().mean()
 
 def get_batch(target_index):
     """
-    Get a batch for the input of training. Current implementation is 
-    1/4 is the seed image (start image ) to the target
-    1/2 is random images between start and target idx - 1 -> target
-    1/4 is target-1 -> target
-
-    This is more experiemental to see how the model will learn.
-    Right now i also think that this will only work for a batch size of 32 since 
-    that is what matches the framesoutput from preprocessing. This should change here in the 
-    indexing we dont need to change preprocessing probably.
+    Get a batch for the input of training. Returns input images and 
+    the number of updates needed to reach the target frame.
     """
-    '''
-    Updated: we will convert batch_images to a list of tuples, where
-    (image: Tensor, updates: int)
-    where image is the seed, and updates is the difference between the seed and target_index in updates.
-    '''
     batch_images = []
     updates = []
     quarter = BATCH_SIZE//4
@@ -183,12 +168,13 @@ def get_batch(target_index):
             batch_images.append(frames[rand_idx][i])
             updates.append(target_index-rand_idx)
         else:
-            batch_images.append(frames[target_index -1][i])
+            batch_images.append(frames[target_index - 1][i])
             updates.append(1)
 
+    # Ensure the tensors are properly set up for gradient computation
     output = torch.stack(batch_images)
-    #print("BATCH IMAGES AFTER USING GET_BATCH FUNCTION IS", output.shape)
     return output, updates
+
 
 
 def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False):
@@ -287,6 +273,7 @@ if __name__ == "__main__":
     print("Device: :", next(MODEL.parameters()).device)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
+    LOSS_FN = lossFn
 
     if TRAINING:
         MODEL, losses = train(MODEL, frames, optimizer)
