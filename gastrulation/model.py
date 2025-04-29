@@ -68,8 +68,8 @@ class NCA_3D(nn.Module):
         """Apply each perception convolution to the current state."""
         # Reshape input to apply perception convolution
         batches, channels, height, width, depth = x.shape
-
         y = x.reshape(batches * channels, 1, height, width, depth)
+        
         # Circular pad the input to avoid losing information at the edges
         y = f.pad(y, [1, 1, 1, 1, 1, 1], "circular")
 
