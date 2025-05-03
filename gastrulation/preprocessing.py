@@ -6,11 +6,13 @@ from torch import Tensor
 import os
 import torch
 
-RESO_FUCKING_LUTION = 15
+# Gride size is the size of the 3d tensor we constructing for preprocessing into model and learning.
+# also have a const value since we using range to account for 0 indexing.
+GRID_SIZE = 16
+GRID_SIZE_0_INDEXING = GRID_SIZE - 1
 
-
-# Load the data
-# 323-59 = 264 (THERE ARE 264 UNIQUE IMAGES) 265 LOL
+# Preprocessing is used to load the data from a huge csv file which is a database consisting of multiple point cloud 'frames'.
+# In the database there are 265 unique 'frames' spanning from start to end.
 
 def visualise(iterations, filenameBase="gastrulation_animation", save=True, show=False):
     import matplotlib.animation as animation
@@ -43,17 +45,13 @@ def visualise(iterations, filenameBase="gastrulation_animation", save=True, show
                             alpha=0.8, s=2)
         
         # Set consistent view
-        ax.set_xlim(0, RESO_FUCKING_LUTION)
-        ax.set_ylim(0, RESO_FUCKING_LUTION)
-        ax.set_zlim(0, RESO_FUCKING_LUTION)
+        ax.set_xlim(0, GRID_SIZE_0_INDEXING)
+        ax.set_ylim(0, GRID_SIZE_0_INDEXING)
+        ax.set_zlim(0, GRID_SIZE_0_INDEXING)
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
         ax.set_title(f"Frame {frame_idx}")
-        
-        # Add colorbar
-        # if frame_idx == 0:
-        #     fig.colorbar(scatter, ax=ax, label='Density')
             
     if save:
         ani = animation.FuncAnimation(fig, update, frames=len(tensors_array), 
@@ -68,10 +66,6 @@ def visualise(iterations, filenameBase="gastrulation_animation", save=True, show
         
     plt.close(fig)
     return
-
-'''
-USING IQR WE FOUND 800~ outliers probably bullshit (not actually outliers)
-'''
 
 def preprocessing():
 
@@ -110,19 +104,16 @@ def preprocessing():
 
     for axis in ['x', 'y', 'z']:
         print(axis)
-        data[axis] = RESO_FUCKING_LUTION* (data[axis] - global_min) / (global_max - global_min)
+        data[axis] = GRID_SIZE_0_INDEXING * (data[axis] - global_min) / (global_max - global_min)
 
     # Per axis normalisation
     # for axis in ['x', 'y', 'z']:
     #     min_val = data[axis].min()
     #     max_val = data[axis].max()
-    #     data[axis] = RESO_FUCKING_LUTION * (data[axis] - min_val) / (max_val - min_val)
+    #     data[axis] = GRID_SIZE_0_INDEXING * (data[axis] - min_val) / (max_val - min_val)
 
     # sort data by x values
     data = data.sort_values(by=['x', 'y', 'z'])
-    # print the max of the sorted
-    # print(data["x"])
-    # print("POST NORM", data[['x', 'y', 'z']].describe())
 
     # Get the unique sorted 't' values
     unique_t_values = sorted(data['t'].unique())
@@ -141,7 +132,7 @@ def preprocessing():
     # batch, channels, x, y, z
 
     for index, dataframe in enumerate(iterations):
-        three_dee = np.zeros([RESO_FUCKING_LUTION+1, RESO_FUCKING_LUTION+1, RESO_FUCKING_LUTION+1], dtype=np.int32)
+        three_dee = np.zeros([GRID_SIZE, GRID_SIZE, GRID_SIZE], dtype=np.int32)
         # going through a row in the dataframe and add the corresponding integer value (eg round it)
         # to that corresponding position in the three dee tensor 
         for i, row in dataframe.iterrows():
@@ -149,20 +140,17 @@ def preprocessing():
             y = int(row['y'])
             z = int(row['z'])
             three_dee[x, y, z] += 1  # Increment for density counting
-            if x < 0 or x >= RESO_FUCKING_LUTION or y < 0 or y >= RESO_FUCKING_LUTION or z < 0 or z >= RESO_FUCKING_LUTION:
+            if x < 0 or x >= GRID_SIZE_0_INDEXING or y < 0 or y >= GRID_SIZE_0_INDEXING or z < 0 or z >= GRID_SIZE_0_INDEXING:
                 print(f"Out of bounds: x={x}, y={y}, z={z} for index {index} in iteration {index}")
                 continue
-        # print(f"Iteration {index}: {len(dataframe)} points, max value in 3D tensor: {np.max(three_dee)}")
         # Normalize the tensor
         # three_dee = three_dee.astype(np.float32) / np.max(three_dee)
-        # print(three_dee)
         print("done iteration", index)
         voxels.append(three_dee)
 
 
     max_val = max([np.max(voxel) for voxel in voxels])
     voxels = [voxel/max_val for voxel in voxels]
-    # print(max_val)
 
     if max_val > 0:  # Avoid division by zero
         iterations = [tensor.astype(np.float32) / max_val for tensor in voxels]
@@ -173,20 +161,19 @@ def preprocessing():
     # we are trying to store a list of each input tensor to the model, where each index of this storage is a frame from the mouse embryo development.
     # this should be a tensor which can be inputted/outputted by the model.
     # we want to fit the alpha mask into this input_image variable. 
-    #  
 
     images = []
     
     for tensor in voxels:
         # Create the input_image tensor
-        input_image = torch.zeros(BATCH_SIZE, CHANNELS, RESO_FUCKING_LUTION+1, RESO_FUCKING_LUTION+1, RESO_FUCKING_LUTION+1)
+        input_image = torch.zeros(BATCH_SIZE, CHANNELS, GRID_SIZE, GRID_SIZE, GRID_SIZE)
         tensor = torch.tensor(tensor, dtype=torch.float32)  # Convert to PyTorch tensor if it's not already
         input_image[:, 0, :, :, :] = tensor  # Assign the 3D tensor to the first channel (alpha mask)
         images.append(input_image)
 
 
     # Minimise Voxel
-    min_bounds = (RESO_FUCKING_LUTION, RESO_FUCKING_LUTION, RESO_FUCKING_LUTION)
+    min_bounds = (GRID_SIZE_0_INDEXING, GRID_SIZE_0_INDEXING, GRID_SIZE_0_INDEXING)
     max_bounds = (0, 0, 0)
 
     for iteration in images:
@@ -225,7 +212,6 @@ def preprocess():
 
     print("No data array, preprocess it all")
     data = preprocessing()
-    # visualise(data, save=False, show=True)
     if os.path.exists(tensor_path):
         os.remove(tensor_path)  
     print("WRITING SAVE")
