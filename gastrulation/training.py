@@ -1,14 +1,28 @@
-from preprocessing import preprocess
-from torch import Tensor
-import torch
-import torch.nn as nn
-from model import NCA_3D
 import random
-import matplotlib.pyplot as plt
-import numpy as np
-import matplotlib.animation as animation
 import time     
+import logging
+import sys
+
+from torch import Tensor
+import torch.nn as nn
+import torch
+
+import numpy as np
+
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+
+from preprocessing import preprocess
+from model import NCA_3D
 from loss import lossFn 
+
+original_print = print
+log_file_name = "log.log"
+
+def print(*args, **kwargs):
+    kwargs.pop('file', None)
+    with open(log_file_name, "a") as log_file:
+        original_print(*args, file=log_file)
 
 
 print("CUDA available:", torch.cuda.is_available())
@@ -71,13 +85,11 @@ def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
 
 frames = preprocess()
 
-frames = [frame.to(torch.float32) for frame in frames]  # Always convert to float32
-
-if torch.cuda.is_available():
-    frames = [frame.cuda() for frame in frames]
+frames = [frame.to(torch.float32) for frame in frames]
 
 if torch.cuda.is_available():
     frames = [frame.to(torch.float64) for frame in frames]
+
 
 print(f'{frames[0].shape = }')
 print(f'{len(frames) = }')
@@ -251,7 +263,7 @@ def initialiseGPU(model):
 if __name__ == "__main__":
     TRAINING = True
     torch.manual_seed(0)
-    FRAMES_LENGTH = 265
+    FRAMES_LENGTH = 14 # standard = 264
     TRAINING = True
     GRID_SIZE = 32
     CHANNELS = 16
