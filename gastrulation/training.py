@@ -72,7 +72,7 @@ def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
 
     if save:
         ani = animation.FuncAnimation(fig, update, frames=len(imgTensor), repeat=False)
-        writer = animation.PillowWriter(fps=5, metadata=dict(artist="Me"), bitrate=1800)
+        writer = animation.PillowWriter(fps=1, metadata=dict(artist="Me"), bitrate=1800)
         ani.save(filenameBase + ".gif", writer=writer)
 
     if show:
@@ -143,12 +143,8 @@ def update_pass(model, batch, updates, target_voxel, optimiser):
             updates = updates[batch_idx]
         )
 
-        # Previously, when we detached the output from the model with the line below, we lost connection to the model. (we don't want that apparently)
-        # BAD: output = output.clone().detach().requires_grad_(True)
-        output_alpha = output[batch_idx:batch_idx+1, 0:1, :, :, :]
-        
-        # The target voxel will be a batch, so extract the batch, and then extract alpha values
-        target = target_voxel[batch_idx:batch_idx+1, 0:1, :, :, :]
+        output_alpha = output[:, 0:1, :, :, :]
+        target = target_voxel[0:1, 0:1, :, :, :] 
 
         loss = LOSS_FN(output_alpha, target)
 
@@ -222,10 +218,11 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
             training_losses.append(loss)
             
             # EVERY 265 WE SAVE WEIGHTS AND WRITE A VISUALISE GIF!
+            # print(f"Epoch {epoch} - Loss: {loss:.10f}")
             if epoch % FRAMES_LENGTH == 0:
                 checkpoint_path = f"UPDATED_model_checkpoint_epoch_{epoch}.pth"
-                torch.save(model.state_dict(), checkpoint_path)
-                print(f"Model weights saved at {checkpoint_path}")
+                # torch.save(model.state_dict(), checkpoint_path)
+                # print(f"Model weights saved at {checkpoint_path}")
                 if len(training_losses) != 0:
                     print(sum(training_losses[-FRAMES_LENGTH:])/len(training_losses[-FRAMES_LENGTH:]))
                 # VISUALISE AT CHECKPOINT 
@@ -271,7 +268,7 @@ if __name__ == "__main__":
     MODEL_WEIGHTS = "./UPDATED_model_checkpoint_epoch_265.pth"
 
     MODEL = NCA_3D()
-    EPOCHS = 100 # 10 * FRAMES_LENGTH 1 epoch should iterate over the entire dataset.
+    EPOCHS = 10000# 10 * FRAMES_LENGTH 1 epoch should iterate over the entire dataset.
     BATCH_SIZE = 32
 
     LR = 1e-4
@@ -285,7 +282,7 @@ if __name__ == "__main__":
     print("Device: :", next(MODEL.parameters()).device)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
-    LOSS_FN = lossFn
+    # LOSS_FN = lossFn
 
     if TRAINING:
         MODEL, losses = train(MODEL, frames, optimizer)
@@ -310,6 +307,6 @@ if __name__ == "__main__":
     print("FORWARD PASSING")
     
     # Generate sequence showing development over time (200 steps)
-    model_generated_voxel = forward_pass(MODEL, img, updates=200, record=True)
+    model_generated_voxel = forward_pass(MODEL, img, updates=14, record=True)
     print("VISUALISING")
     anim = visualise(model_generated_voxel, save=True, show=False)

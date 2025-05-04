@@ -4,11 +4,6 @@ def lossFn(output, target):
     # This will ensure we maintain the gradients as we modify the normalised values
     target_norm = target.clone()
     
-    ## 1. normalise alpha channel values between 0 and 1 for target
-    targ_min = torch.min(target_norm)
-    targ_max = torch.max(target_norm)
-    target_norm = (target_norm - targ_min) / (targ_max - targ_min + 1e-8)
-    
     # Clamp output values between 0 and 1
     output_clamped = torch.clamp(output, min=0, max=1)
     

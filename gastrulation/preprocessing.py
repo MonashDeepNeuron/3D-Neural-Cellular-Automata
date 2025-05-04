@@ -69,7 +69,7 @@ def visualise(iterations, filenameBase="gastrulation_animation", save=True, show
 
 def preprocessing():
 
-    csv_path = "./gastrulation/Database.csv"
+    csv_path = "./gastrulation/ReducedDatabase.csv"
     df = pd.read_csv(csv_path)
     print("DATAFRAME IS", df)
     df.columns = df.columns.str.strip()
