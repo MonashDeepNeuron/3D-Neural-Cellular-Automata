@@ -18,25 +18,34 @@ seed: rgba, x, y, z
 output: batch, rgba, x, y, z
 """
 
+
 class Debug(Enum):
     OFF = 0
     VERBOSE = 1
     CONCISE = 2
 
+
 if torch.cuda.is_available():
     torch.set_default_device("cuda")
     torch.set_default_dtype(torch.float64)
-    #torch.set_default_device("cpu")
+    # torch.set_default_device("cpu")
+
 
 def minimise_voxel(imgTensor):
     imgTensor
-    non_zeros = (torch.nonzero(imgTensor[3,:, :, :])).permute(1,0)
+    non_zeros = (torch.nonzero(imgTensor[3, :, :, :])).permute(1, 0)
 
     min_bounds = [torch.min(non_zeros[i]) for i in range(non_zeros.shape[0])]
     max_bounds = [torch.max(non_zeros[i]) for i in range(non_zeros.shape[0])]
 
-    imgTensor = imgTensor[:, min_bounds[0]:max_bounds[0]+1, min_bounds[1]:max_bounds[1]+1, min_bounds[2]:max_bounds[2]+1]
-    return imgTensor 
+    imgTensor = imgTensor[
+        :,
+        min_bounds[0] : max_bounds[0] + 1,
+        min_bounds[1] : max_bounds[1] + 1,
+        min_bounds[2] : max_bounds[2] + 1,
+    ]
+    return imgTensor
+
 
 def visualise(imgTensor, filenameBase="gpu_64_minecraft", save=True, show=False):
     fig = plt.figure()
@@ -99,7 +108,7 @@ def new_seed(target_voxel, batch_size=1):
     # seed[:, 3, SHAPE[1] // 2, SHAPE[2] // 2, 0] = (
     #     1  #  Alpha channel = 3 (as 4th value in RGBA channel)
     # )
-    seed[:, 3, SHAPE[1]//2, SHAPE[2]//2, 0] = (
+    seed[:, 3, SHAPE[1] // 2, SHAPE[2] // 2, 0] = (
         1  #  Alpha channel = 3 (as 4th value in RGBA channel)
     )
     return seed
@@ -109,9 +118,9 @@ def load_image(imagePath: str):
     voxel = vox_to_arr(imagePath)
     voxel_tensor = torch.tensor(voxel).float()
     if torch.cuda.is_available():
-        voxel_tensor = voxel_tensor.to(torch.float64) 
+        voxel_tensor = voxel_tensor.to(torch.float64)
     else:
-        voxel_tensor = voxel_tensor.to(torch.float32) 
+        voxel_tensor = voxel_tensor.to(torch.float32)
 
     return voxel_tensor.permute(3, 0, 1, 2)
 
@@ -166,7 +175,14 @@ def update_pass(model, batch, target_voxel, optimiser):
     return batch_losses.cpu().numpy()
 
 
-def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False, DEBUG_MODE=Debug.OFF, training_losses=[]):
+def train(
+    model: nn.Module,
+    target_voxel: torch.Tensor,
+    optimiser,
+    record=False,
+    DEBUG_MODE=Debug.OFF,
+    training_losses=[],
+):
     device = next(model.parameters()).device
 
     target_voxel = target_voxel.to(device)
@@ -182,20 +198,24 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
 
             losses = update_pass(model, batch, target_voxel, optimiser)
             training_losses.append(np.mean(losses))
-            
+
             # Print loss statistics
             if DEBUG_MODE == Debug.VERBOSE:
                 print(f"epoch {epoch+1}/{EPOCHS} loss = {losses}")
             elif DEBUG_MODE == Debug.CONCISE:
-                print(f"""
+                print(
+                    f"""
                 Epoch {epoch + 1}/{EPOCHS}
                     Mean loss = {np.mean(losses):.4e}
                     Std loss  = {np.std(losses):.4e}
                     Min loss  = {np.min(losses):.4e}
                     Max loss  = {np.max(losses):.4e}
-                """.strip().replace(" "*16, "    "))
-            
-            recordRate = 5 # Loss graph will be updated every x epochs, and model will be saved every x epochs.
+                """.strip().replace(
+                        " " * 16, "    "
+                    )
+                )
+
+            recordRate = 5  # Loss graph will be updated every x epochs, and model will be saved every x epochs.
             if epoch % recordRate == 0 and epoch != 0:
                 print(f"saving model, epoch: {epoch}")
                 torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
@@ -203,19 +223,24 @@ def train(model: nn.Module, target_voxel: torch.Tensor, optimiser, record=False,
                 ax = fig.add_subplot(1, 1, 1)
 
                 ax.cla()
-                ax.set_yscale('log')
+                ax.set_yscale("log")
                 ax.set_xlim(0, len(training_losses))
                 ax.set_ylim(min(training_losses), max(training_losses))
-                ax.set_xlabel('Epoch')
-                ax.set_ylabel('Loss')
-                ax.set_title('Loss')
-                ax.plot(training_losses, '.', alpha=0.2)
-                plt.savefig('loss.png')
+                ax.set_xlabel("Epoch")
+                ax.set_ylabel("Loss")
+                ax.set_title("Loss")
+                ax.plot(training_losses, ".", alpha=0.2)
+                plt.savefig("loss.png")
                 if LOSS_LOGGING:
                     with open("losses.csv", "a") as f:
-                        losses_str = ",".join(f"{loss:.6f}" for loss in training_losses[-recordRate-1 :-1]) +","
+                        losses_str = (
+                            ",".join(
+                                f"{loss:.6f}"
+                                for loss in training_losses[-recordRate - 1 : -1]
+                            )
+                            + ","
+                        )
                         f.write(losses_str)
-
 
     except KeyboardInterrupt:
         pass
@@ -237,6 +262,7 @@ def initialiseGPU(model):
     model = model.to(device)
     return model
 
+
 def getLosses(fileName="losses.csv"):
     losses = []
 
@@ -246,22 +272,22 @@ def getLosses(fileName="losses.csv"):
     try:
         with open(fileName, mode="r") as file:
             while True:
-                buffer = file.read(8) # Load float into buffer
-                if not buffer: # exit if EOF
+                buffer = file.read(8)  # Load float into buffer
+                if not buffer:  # exit if EOF
                     break
 
-                file.read(1) # skip the comma
+                file.read(1)  # skip the comma
                 losses.append(float(buffer))
     except ValueError:
         print("Losses file corrupted")
         return []
     return losses
 
+
 if __name__ == "__main__":
 
     DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
     LOSS_LOGGING = True
-
 
     torch.manual_seed(0)
     TRAINING = True
@@ -274,25 +300,31 @@ if __name__ == "__main__":
     BATCH_SIZE = 2
     UPDATES_RANGE = [64, 96]
 
-    LR = 1e-4 # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
+    LR = 1e-4  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
     initialiseGPU(MODEL)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
-    
+
     # LOSS_FN = torch.nn.MSELoss(reduction="mean")
     LOSS_FN = lossFn
 
-    target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")    
+    target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")
     target_voxel = minimise_voxel(target_voxel).cpu()
     # anim = visualise(target_voxel, save=False, show=True)
-    
+
     if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
         MODEL.load_state_dict(
             torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
-    )
+        )
 
     if TRAINING:
         losses = getLosses()
-        MODEL, losses = train(MODEL, target_voxel, optimizer, DEBUG_MODE=DEBUG_MODE, training_losses=losses)
+        MODEL, losses = train(
+            MODEL,
+            target_voxel,
+            optimizer,
+            DEBUG_MODE=DEBUG_MODE,
+            training_losses=losses,
+        )
         torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
 
         # Plot losses, and save to loss.png
@@ -300,15 +332,15 @@ if __name__ == "__main__":
         ax = fig.add_subplot(1, 1, 1)
 
         ax.cla()
-        ax.set_yscale('log')
+        ax.set_yscale("log")
         ax.set_xlim(0, EPOCHS)
         ax.set_ylim(min(losses), losses[0])
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Loss')
-        ax.set_title('Loss')
-        ax.plot(losses, '.', alpha=0.2)
-        plt.savefig('loss.png')
-        
+        ax.set_xlabel("Epoch")
+        ax.set_ylabel("Loss")
+        ax.set_title("Loss")
+        ax.plot(losses, ".", alpha=0.2)
+        plt.savefig("loss.png")
+
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
 

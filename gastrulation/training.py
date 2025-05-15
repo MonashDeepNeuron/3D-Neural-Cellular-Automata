@@ -1,5 +1,5 @@
 import random
-import time     
+import time
 import logging
 import sys
 
@@ -14,27 +14,31 @@ import matplotlib.animation as animation
 
 from preprocessing import preprocess
 from model import NCA_3D
-from loss import lossFn 
+from loss import lossFn
 
 original_print = print
 log_file_name = "log.log"
 
+
 def print(*args, **kwargs):
-    kwargs.pop('file', None)
+    kwargs.pop("file", None)
     with open(log_file_name, "a") as log_file:
         original_print(*args, file=log_file)
 
 
 print("CUDA available:", torch.cuda.is_available())
 print("CUDA version:", torch.version.cuda)
-print("Device:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No CUDA device")
+print(
+    "Device:",
+    torch.cuda.get_device_name(0) if torch.cuda.is_available() else "No CUDA device",
+)
 
 
 def visualise(imgTensor, filenameBase="mouse_embryo", save=True, show=False):
 
     if isinstance(imgTensor, list):
         imgTensor = torch.cat([frame[0:1] for frame in imgTensor], dim=0)
-    
+
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
@@ -91,8 +95,8 @@ if torch.cuda.is_available():
     frames = [frame.to(torch.float64) for frame in frames]
 
 
-print(f'{frames[0].shape = }')
-print(f'{len(frames) = }')
+print(f"{frames[0].shape = }")
+print(f"{len(frames) = }")
 
 
 def forward_pass(model: nn.Module, state, updates=1, record=False):  # TODO
@@ -108,9 +112,9 @@ def forward_pass(model: nn.Module, state, updates=1, record=False):  # TODO
 
         frames_array = Tensor(
             updates,
-            channels, # small thing here but would it be best practice to use the global variable channels or the unpacked variable?
+            channels,  # small thing here but would it be best practice to use the global variable channels or the unpacked variable?
             x_dim,
-            y_dim, 
+            y_dim,
             z_dim,
         )
         for i in range(updates):
@@ -125,6 +129,7 @@ def forward_pass(model: nn.Module, state, updates=1, record=False):  # TODO
 
     return state
 
+
 def update_pass(model, batch, updates, target_voxel, optimiser):
     """
     Back calculate gradient and update model paramaters
@@ -135,16 +140,16 @@ def update_pass(model, batch, updates, target_voxel, optimiser):
     for batch_idx in range(BATCH_SIZE):
         optimiser.zero_grad()
 
-        input_state = batch[batch_idx:batch_idx+1].detach().clone().requires_grad_(True)
+        input_state = (
+            batch[batch_idx : batch_idx + 1].detach().clone().requires_grad_(True)
+        )
 
         output = forward_pass(
-            model = model, 
-            state = input_state, 
-            updates = updates[batch_idx]
+            model=model, state=input_state, updates=updates[batch_idx]
         )
 
         output_alpha = output[:, 0:1, :, :, :]
-        target = target_voxel[0:1, 0:1, :, :, :] 
+        target = target_voxel[0:1, 0:1, :, :, :]
 
         loss = LOSS_FN(output_alpha, target)
 
@@ -154,19 +159,20 @@ def update_pass(model, batch, updates, target_voxel, optimiser):
 
     return batch_losses.cpu().numpy().mean()
 
+
 def get_batch(target_index):
     """
-    Get a batch for the input of training. Returns input images and 
+    Get a batch for the input of training. Returns input images and
     the number of updates needed to reach the target frame.
     """
     batch_images = []
     updates = []
-    quarter = BATCH_SIZE//4
-    
+    quarter = BATCH_SIZE // 4
+
     if target_index == 0:
         # Just return the first frame with no updates needed
         return frames[0], [0] * BATCH_SIZE
-    
+
     for i in range(BATCH_SIZE):
         if i < quarter:
             batch_images.append(frames[0][i])
@@ -174,7 +180,7 @@ def get_batch(target_index):
         elif i < quarter * 3:
             rand_idx = random.randint(0, target_index - 1)
             batch_images.append(frames[rand_idx][i])
-            updates.append(target_index-rand_idx)
+            updates.append(target_index - rand_idx)
         else:
             batch_images.append(frames[target_index - 1][i])
             updates.append(1)
@@ -184,13 +190,12 @@ def get_batch(target_index):
     return output, updates
 
 
-
 def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False):
     device = next(model.parameters()).device
     print(device)
-    # target voxel is modulo length of data where half of batch is 1 -> this image 
-    # and the other half is -1 of this image -> this image 
-    # for example say we are up to epoch 471 
+    # target voxel is modulo length of data where half of batch is 1 -> this image
+    # and the other half is -1 of this image -> this image
+    # for example say we are up to epoch 471
 
     # target_voxel = target_voxels[-1]
     # target_voxel = target_voxel.to(device)
@@ -199,7 +204,7 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
     try:
         for epoch in range(EPOCHS):
             # eg epoch = 571, frames_length = 265; 571 % 265 = 41
-            target_index  = epoch % FRAMES_LENGTH
+            target_index = epoch % FRAMES_LENGTH
             target_voxel = target_voxels[target_index]
             target_voxel = target_voxel.to(device)
 
@@ -216,7 +221,7 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
 
             loss = update_pass(model, batch, updates, target_voxel, optimiser)
             training_losses.append(loss)
-            
+
             # EVERY 265 WE SAVE WEIGHTS AND WRITE A VISUALISE GIF!
             # print(f"Epoch {epoch} - Loss: {loss:.10f}")
             if epoch % FRAMES_LENGTH == 0:
@@ -224,11 +229,14 @@ def train(model: nn.Module, target_voxels: torch.Tensor, optimiser, record=False
                 # torch.save(model.state_dict(), checkpoint_path)
                 # print(f"Model weights saved at {checkpoint_path}")
                 if len(training_losses) != 0:
-                    print(sum(training_losses[-FRAMES_LENGTH:])/len(training_losses[-FRAMES_LENGTH:]))
-                # VISUALISE AT CHECKPOINT 
+                    print(
+                        sum(training_losses[-FRAMES_LENGTH:])
+                        / len(training_losses[-FRAMES_LENGTH:])
+                    )
+                # VISUALISE AT CHECKPOINT
                 # with torch.no_grad():
                 #     model.eval()  # Set model to evaluation mode
-                #     #if i can get this to anim = visualise frame[0] that would be good 
+                #     #if i can get this to anim = visualise frame[0] that would be good
                 #     # but having problems with gpu and cpu mixup
                 #     model.train()  # Set model back to training mode
                 #     # make sure to move the model back to CUDA after evaluation
@@ -260,7 +268,7 @@ def initialiseGPU(model):
 if __name__ == "__main__":
     TRAINING = True
     torch.manual_seed(0)
-    FRAMES_LENGTH = 14 # standard = 264
+    FRAMES_LENGTH = 14  # standard = 264
     TRAINING = True
     GRID_SIZE = 32
     CHANNELS = 16
@@ -268,7 +276,7 @@ if __name__ == "__main__":
     MODEL_WEIGHTS = "./UPDATED_model_checkpoint_epoch_265.pth"
 
     MODEL = NCA_3D()
-    EPOCHS = 10000# 10 * FRAMES_LENGTH 1 epoch should iterate over the entire dataset.
+    EPOCHS = 10000  # 10 * FRAMES_LENGTH 1 epoch should iterate over the entire dataset.
     BATCH_SIZE = 32
 
     LR = 1e-4
@@ -278,7 +286,7 @@ if __name__ == "__main__":
     #     print(f"Loaded model weights from {MODEL_WEIGHTS}")
     # except:
     #     pass
-        
+
     print("Device: :", next(MODEL.parameters()).device)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
     LOSS_FN = torch.nn.MSELoss(reduction="mean")
@@ -305,7 +313,7 @@ if __name__ == "__main__":
     MODEL.eval()
     img = frames[0][0].unsqueeze(0)
     print("FORWARD PASSING")
-    
+
     # Generate sequence showing development over time (200 steps)
     model_generated_voxel = forward_pass(MODEL, img, updates=14, record=True)
     print("VISUALISING")

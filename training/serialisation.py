@@ -2,7 +2,7 @@ import numpy as np
 import os
 
 
-def save_tensor(simulation_tensor, filenameBase="tensor_test", directory = "tensors"):
+def save_tensor(simulation_tensor, filenameBase="tensor_test", directory="tensors"):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -29,5 +29,5 @@ def save_tensor(simulation_tensor, filenameBase="tensor_test", directory = "tens
     ## Remove hidden channels
     simulation_tensor = simulation_tensor[..., :4]
 
-    ## Serialise and save tensor 
+    ## Serialise and save tensor
     np.save(f"{directory}/{filenameBase}", simulation_tensor)
