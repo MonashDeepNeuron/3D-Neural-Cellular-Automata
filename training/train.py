@@ -10,6 +10,8 @@ import matplotlib.animation as animation
 from midvoxio.voxio import vox_to_arr
 from enum import Enum
 from loss import lossFn
+from serialisation import save_tensor
+
 """
 target_voxel : rgba, x, y, z
 seed: rgba, x, y, z
@@ -313,4 +315,5 @@ if __name__ == "__main__":
     # ## Plot final state of evaluation OR evaluation animation
     img = new_seed(target_voxel=target_voxel, batch_size=1)
     model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
+    save_tensor(model_generated_voxel, VOXEL_PATH_NAME)
     anim = visualise(model_generated_voxel, save=True, show=False)
