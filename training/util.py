@@ -2,7 +2,7 @@ import numpy as np
 import os
 
 
-def save_tensor(simulation_tensor, filenameBase="tensor_test", directory="tensors"):
+def save_tensor(simulation_tensor, filenameBase="test", directory="tensors"):
     """
     Saves the tensor containing the simiulation as an npy file
     """
@@ -36,19 +36,24 @@ def save_tensor(simulation_tensor, filenameBase="tensor_test", directory="tensor
     np.save(f"{directory}/{filenameBase}", simulation_tensor)
 
 
-def save_weights(model, filenameBase="tensor_test", directory="weights"):
+def save_model_state(model, seed, filenameBase="test", directory="state"):
     """
-    Saves the model weights as a npy file
+    Saves the model state as a npy file. This state is a dictionary with structure:
+    {
+        "seed" : np.array,
+        "layers.0.weight" : np.array,
+        "layers.0.bias" : np.array,
+        "layers.2.weight" : np.array
+    }
     """
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    state_dict = model.state_dict()
-    weight_dict = {
-        k: v.detach().cpu().numpy().astype(np.float32) for k, v in state_dict.items()
+    state_dict = {
+        k: v.detach().cpu().numpy().astype(np.float32)
+        for k, v in model.state_dict().items()
     }
-    np.save(f"{directory}/{filenameBase}", weight_dict)
 
-    # Optionally print out the layers for verification
-    for name, param in model.state_dict().items():
-        print(f"Layer name: {name}, Shape: {param.shape}")
+    state_dict["seed"] = seed
+
+    np.save(f"{directory}/{filenameBase}", state_dict)
