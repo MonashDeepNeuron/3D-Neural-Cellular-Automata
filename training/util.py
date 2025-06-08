@@ -149,6 +149,17 @@ def new_seed(target_voxel, channels=16, batch_size=1):
     return seed
 
 
+def new_numpy_seed(target_voxel, channels=16, batch_size=1):
+    """
+    Seed is a cube map that sets a singular pixel activated in form.
+    Returns a NumPy array of shape (batch_size, channels, X, Y, Z).
+    """
+    _, X, Y, Z = target_voxel.shape
+    seed = np.zeros((batch_size, channels, X, Y, Z), dtype=np.float32)
+    seed[:, 3, X // 2, Y // 2, 0] = 1.0
+    return seed
+
+
 # ════════════════════════════════════════════════════════════════════
 #                           VISUALISATION
 # ════════════════════════════════════════════════════════════════════

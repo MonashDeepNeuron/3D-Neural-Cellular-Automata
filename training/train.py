@@ -13,6 +13,7 @@ from util import (
     save_model_state,
     minimise_voxel,
     new_seed,
+    new_numpy_seed,
     load_image,
     getLosses,
     initialiseGPU,
@@ -228,5 +229,6 @@ if __name__ == "__main__":
     img = new_seed(target_voxel=target_voxel, batch_size=1)
     model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
     save_tensor(model_generated_voxel, VOXEL_PATH_NAME)
-    save_model_state(MODEL, img, VOXEL_PATH_NAME)
+    numpy_seed_state = new_numpy_seed(target_voxel=target_voxel, batch_size=1)
+    save_model_state(MODEL, numpy_seed_state, VOXEL_PATH_NAME)
     anim = visualise(model_generated_voxel, VOXEL_PATH_NAME, save=True, show=True)
