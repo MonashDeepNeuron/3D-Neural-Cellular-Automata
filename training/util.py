@@ -144,9 +144,26 @@ def new_seed(target_voxel, channels=16, batch_size=1):
     SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
     seed = torch.zeros(batch_size, channels, SHAPE[1], SHAPE[2], SHAPE[3])
 
-    ## Batch, channels, x, y, z
-    seed[:, 3, SHAPE[1] // 2, SHAPE[2] // 2, 0] = 1
+    x, y, z = compute_seed_position(target_voxel, SHAPE)
+    seed[:, x, y, z, 3] = 1
     return seed
+
+
+def compute_seed_position(target_voxel, shape):
+    x_ideal_index = shape[1] // 2
+    y_ideal_index = 0
+    z_ideal_index = shape[2] // 2
+    alive_cells_positions = np.where(target_voxel[..., 3] > 0)
+
+    x_index = (np.abs(alive_cells_positions[0] - x_ideal_index)).argmin()
+    y_index = (np.abs(alive_cells_positions[1] - y_ideal_index)).argmin()
+    z_index = (np.abs(alive_cells_positions[2] - z_ideal_index)).argmin()
+
+    return (
+        alive_cells_positions[0][x_index],
+        alive_cells_positions[1][y_index],
+        alive_cells_positions[2][z_index],
+    )
 
 
 def new_numpy_seed(target_voxel, channels=16, batch_size=1):
