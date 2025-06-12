@@ -22,7 +22,7 @@ from util import (
 
 """
 target_voxel : rgba, x, y, z
-seed: rgba, x, y, z
+seed: batch, rgba, x, y, z
 output: batch, rgba, x, y, z
 """
 
@@ -191,10 +191,10 @@ if __name__ == "__main__":
     target_voxel = minimise_voxel(target_voxel).cpu()
     # anim = visualise(target_voxel, save=False, show=True)
 
-    # if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
-    #     MODEL.load_state_dict(
-    #         torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
-    #     )
+    if os.path.exists(f"saved_models/{VOXEL_PATH_NAME}.pth"):
+        MODEL.load_state_dict(
+            torch.load(f"saved_models/{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
+        )
 
     if TRAINING:
         # losses = getLosses()
@@ -205,7 +205,7 @@ if __name__ == "__main__":
             DEBUG_MODE=DEBUG_MODE,
             # training_losses=None,
         )
-        torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
+        torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}.pth")
 
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
