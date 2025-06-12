@@ -174,3 +174,10 @@ cython_debug/
 
 ## numpy serialised files
 *.npy
+
+## output folders
+voxel_models/
+tensors/
+state/
+gif/
+saved_models/
