@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 import torch.nn as nn
-from model import NCA_3D
+from model import NCA3DModel
 import random
 import matplotlib.pyplot as plt
 import numpy as np
@@ -174,14 +174,13 @@ if __name__ == "__main__":
     TRAINING = True
     GRID_SIZE = 32
     CHANNELS = 16
-    VOXEL_PATH_NAME = "potted_flower"
+    VOXEL_PATH_NAME = "donut"
 
-    MODEL = NCA_3D()
+    MODEL = NCA3DModel(hidden_channels=12)
     EPOCHS = 1
     BATCH_SIZE = 2
     UPDATES_RANGE = [64, 96]
-
-    LR = 1e-4  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
+    LR = 1e-3  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
     initialiseGPU(MODEL)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
 
@@ -192,42 +191,28 @@ if __name__ == "__main__":
     target_voxel = minimise_voxel(target_voxel).cpu()
     # anim = visualise(target_voxel, save=False, show=True)
 
-    if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
-        MODEL.load_state_dict(
-            torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
-        )
+    # if os.path.exists(f"{VOXEL_PATH_NAME}.pth"):
+    #     MODEL.load_state_dict(
+    #         torch.load(f"{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
+    #     )
 
     if TRAINING:
-        losses = getLosses()
+        # losses = getLosses()
         MODEL, losses = train(
             MODEL,
             target_voxel,
             optimizer,
             DEBUG_MODE=DEBUG_MODE,
-            training_losses=losses,
+            # training_losses=None,
         )
         torch.save(MODEL.state_dict(), f"{VOXEL_PATH_NAME}.pth")
-
-        # Plot losses, and save to loss.png
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 1, 1)
-
-        ax.cla()
-        ax.set_yscale("log")
-        ax.set_xlim(0, EPOCHS)
-        ax.set_ylim(min(losses), losses[0])
-        ax.set_xlabel("Epoch")
-        ax.set_ylabel("Loss")
-        ax.set_title("Loss")
-        ax.plot(losses, ".", alpha=0.2)
-        plt.savefig("loss.png")
 
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
 
     # ## Plot final state of evaluation OR evaluation animation
     img = new_seed(target_voxel=target_voxel, batch_size=1)
-    model_generated_voxel = forward_pass(MODEL, img, 96, record=True)
+    model_generated_voxel = forward_pass(MODEL, img, 48, record=True)
     save_tensor(model_generated_voxel, VOXEL_PATH_NAME)
     numpy_seed_state = new_numpy_seed(target_voxel=target_voxel, batch_size=1)
     save_model_state(MODEL, numpy_seed_state, VOXEL_PATH_NAME)
