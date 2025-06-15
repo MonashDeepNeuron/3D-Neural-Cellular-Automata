@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from enum import Enum
-from loss import lossFn
+from loss import lossFn, updated_loss_fn
 from util import (
     save_tensor,
     save_model_state,
@@ -19,6 +19,10 @@ from util import (
     initialiseGPU,
     visualise,
 )
+
+# memory issues
+torch.cuda.empty_cache()
+torch.cuda.ipc_collect()  
 
 """
 target_voxel : rgba, x, y, z
@@ -73,7 +77,7 @@ def update_pass(model, batch, target_voxel, optimiser):
     batch_losses = torch.zeros(BATCH_SIZE, device=device)
     for batch_idx in range(BATCH_SIZE):
         optimiser.zero_grad()
-        updates = random.randrange(UPDATES_RANGE[0], UPDATES_RANGE[1])
+        updates = random.randrange(UPDATES_RANGE[0], UPDATES_RANGE[1]) # TODO: Seeding Random
 
         output = forward_pass(
             model=model, state=batch[batch_idx].unsqueeze(0), updates=updates
@@ -177,15 +181,15 @@ if __name__ == "__main__":
     VOXEL_PATH_NAME = "donut"
 
     MODEL = NCA3DModel(hidden_channels=12)
-    EPOCHS = 1
-    BATCH_SIZE = 2
-    UPDATES_RANGE = [64, 96]
+    EPOCHS = 5
+    BATCH_SIZE = 8
+    UPDATES_RANGE = [48, 64]
     LR = 1e-3  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
     initialiseGPU(MODEL)
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
 
     # LOSS_FN = torch.nn.MSELoss(reduction="mean")
-    LOSS_FN = lossFn
+    LOSS_FN = updated_loss_fn
 
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")
     target_voxel = minimise_voxel(target_voxel).cpu()
@@ -205,7 +209,7 @@ if __name__ == "__main__":
             DEBUG_MODE=DEBUG_MODE,
             # training_losses=None,
         )
-        torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}.pth")
+        torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}.pth") #saving
 
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()

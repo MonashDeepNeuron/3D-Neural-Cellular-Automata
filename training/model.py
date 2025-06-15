@@ -7,7 +7,7 @@ FLOAT_TYPE = torch.float64 if torch.cuda.is_available() else torch.float32
 
 """
     Author: Nyan Kyaw
-    Last Modified: 05/06/2025
+    Last Modified: 15/06/2025
 
     This script represents the model described in "Growing 3D Artefacts and Functional Machines with Neural Cellular Automata"
     by Sudhakaran et al.
@@ -44,8 +44,9 @@ class LearnablePerceptionNetwork(torch.nn.Module):
         stride=1,
         padding=1,
         bias=False,
-        weight_mean=0.0,
-        weight_std=0.01,
+        #weight_mean=0.001,
+        normal_std=0.02,
+        zero_bias=True
     ):
         super(
             LearnablePerceptionNetwork, self
@@ -62,8 +63,20 @@ class LearnablePerceptionNetwork(torch.nn.Module):
             bias=bias,
         )
 
-        # Apply weight initialisation if results are poor
-        init.normal_(self.conv.weight, mean=weight_mean, std=weight_std)
+        def init_weights(m):
+            if isinstance(m, torch.nn.Conv3d):
+                torch.nn.init.normal_(m.weight, std=normal_std)
+                if getattr(m, "bias", None) is not None:
+                    if zero_bias:
+                        torch.nn.init.zeros_(m.bias)
+                    else:
+                        torch.nn.init.normal_(m.bias, std=normal_std)
+
+        with torch.no_grad():
+            self.apply(init_weights)
+
+        # # Apply weight initialisation if results are poor
+        # init.normal_(self.conv.weight, mean=weight_mean, std=weight_std)
 
     def forward(self, x):
         return self.conv(x)
@@ -86,8 +99,10 @@ class NCA3DUpdateNetwork(torch.nn.Module):
         self,
         num_channels=4,
         hidden_layer_dims=[16, 16],
-        weight_mean=0.0,
-        weight_std=0.01,
+        # weight_mean=0.001,
+        # weight_std=0.0005
+        normal_std=0.02,
+        zero_bias=True
     ):
         super(NCA3DUpdateNetwork, self).__init__()
         layers = []
@@ -97,7 +112,7 @@ class NCA3DUpdateNetwork(torch.nn.Module):
             out_channels=hidden_layer_dims[0],
             kernel_size=1,
         )
-        init.normal_(self.conv1.weight, mean=weight_mean, std=weight_std)
+        #init.normal_(self.conv1.weight, mean=weight_mean, std=weight_std)
 
         layers.append(self.conv1)
 
@@ -109,7 +124,7 @@ class NCA3DUpdateNetwork(torch.nn.Module):
             out_channels=hidden_layer_dims[1],
             kernel_size=1,
         )
-        init.normal_(self.conv2.weight, mean=weight_mean, std=weight_std)
+        #init.normal_(self.conv2.weight, mean=weight_mean, std=weight_std)
 
         layers.append(self.conv2)
 
@@ -122,11 +137,23 @@ class NCA3DUpdateNetwork(torch.nn.Module):
             kernel_size=1,
             bias=False,
         )
-        init.normal_(self.conv3.weight, mean=weight_mean, std=weight_std)
+        #init.normal_(self.conv3.weight, mean=weight_mean, std=weight_std)
 
         layers.append(self.conv3)
 
         self.update_net = torch.nn.Sequential(*layers)
+
+        def init_weights(m):
+            if isinstance(m, torch.nn.Conv3d):
+                torch.nn.init.normal_(m.weight, std=normal_std)
+                if getattr(m, "bias", None) is not None:
+                    if zero_bias:
+                        torch.nn.init.zeros_(m.bias)
+                    else:
+                        torch.nn.init.normal_(m.bias, std=normal_std)
+
+        with torch.no_grad():
+            self.apply(init_weights)
 
     def forward(self, x):
         return self.update_net(x)
@@ -222,7 +249,7 @@ class NCA3DModel(torch.nn.Module):
         out = x + delta_masked
 
         alive_cells_after_update = (
-            self.alive(x) > self.alpha_living_threshold
+            self.alive(out) > self.alpha_living_threshold
         )  # store which cells are still alive after update
         alive_mask = (alive_cells & alive_cells_after_update).float().to(self.device)
 
@@ -236,5 +263,4 @@ class NCA3DModel(torch.nn.Module):
         )
         for step in range(random_number_steps):  # TODO: Seeding
             x = self.update(x)
-
         return x

@@ -155,10 +155,13 @@ def compute_seed_position(target_voxel, shape):
     x_ideal_index = x // 2
     y_ideal_index = y // 2
     z_ideal_index = 0
-    alive_cells_positions = np.where(target_voxel[3, ..., 0] > 0) ## positions of alive cells on bottom row 
+    
+    # alive_cells_positions = np.where(target_voxel[3, ..., 0] > 0) ## positions of alive cells on bottom row 
+    alive_cells_positions = torch.where(target_voxel[3, ..., 0] > 0) ## positions of alive cells on bottom row 
 
     ## TODO: use argmin to figure out which index in alive_cell_positions
-    index = (np.abs(alive_cells_positions[0] - x_ideal_index) + np.abs(alive_cells_positions[1] - y_ideal_index)).argmin()
+    # index = (np.abs(alive_cells_positions[0] - x_ideal_index) + np.abs(alive_cells_positions[1] - y_ideal_index)).argmin()
+    index = (torch.abs(alive_cells_positions[0] - x_ideal_index) + torch.abs(alive_cells_positions[1] - y_ideal_index)).argmin()
 
     ## find the index in which we minimise the x and y dimensions whilst keep z = 0 (if none exist when z = 0 this 
     ## should be cropped away by minimal cropping)
