@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from enum import Enum
-from loss import updated_loss_fn
+from loss import Loss
 from util import (
     save_tensor,
     save_model_state,
@@ -20,9 +20,11 @@ from util import (
     visualise,
 )
 
+import sys
+
 # memory issues
-torch.cuda.empty_cache()
-torch.cuda.ipc_collect()  
+# torch.cuda.empty_cache()
+# torch.cuda.ipc_collect()  
 
 """
 target_voxel : rgba, x, y, z
@@ -42,6 +44,31 @@ if torch.cuda.is_available():
     torch.set_default_dtype(torch.float64)
     # torch.set_default_device("cpu")
 
+
+# def forward_pass(model: nn.Module, state, updates, record=False):  # TODO
+#     """
+#     Run a forward pass consisting of `updates` number of updates
+#     If `record` is true, then records the state in a tensor to animate and saves the video
+#     Returns the final state
+#     """
+#     if record:
+#         frames_array = Tensor(
+#             updates,
+#             CHANNELS,
+#             target_voxel.shape[1],
+#             target_voxel.shape[2],
+#             target_voxel.shape[3],
+#         )
+#         for i in range(updates):
+#             state = model(state)
+#             frames_array[i] = state
+#         return frames_array
+
+#     else:
+#         for i in range(updates):
+#             state = model(state)
+
+#     return state
 
 def generate_gif_tensor(model: nn.Module, seed):
     """
@@ -151,6 +178,13 @@ def train(
 
 if __name__ == "__main__":
 
+    EPOCHS=int(sys.argv[1])
+    LR=float(sys.argv[2])
+    BATCH_SIZE=int(sys.argv[3])
+    LOSS_INDEX= int(sys.argv[4])
+    
+    LOSS_FN=Loss(LOSS_INDEX)
+
     DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
     LOSS_LOGGING = True
 
@@ -162,21 +196,17 @@ if __name__ == "__main__":
 
     MODEL = NCA3DModel(hidden_channels=12)
     MODEL, device = initialiseGPU(MODEL) # initialiseGPU returns the Model that is moved onto GPU
-    EPOCHS = 100
-    BATCH_SIZE = 1
     UPDATES_RANGE = [48, 64]
-    LR = 1e-4  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
 
-    LOSS_FN = updated_loss_fn
 
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")
     # target_voxel = minimise_voxel(target_voxel).cpu()
     target_voxel = minimise_voxel(target_voxel) 
 
-    if os.path.exists(f"saved_models/{VOXEL_PATH_NAME}.pth"):
+    if os.path.exists(f"saved_models/{VOXEL_PATH_NAME}_{LOSS_INDEX}.pth"):
         MODEL.load_state_dict(
-            torch.load(f"saved_models/{VOXEL_PATH_NAME}.pth", map_location=torch.device("cpu"))
+            torch.load(f"saved_models/{VOXEL_PATH_NAME}_{LOSS_INDEX}.pth", map_location=torch.device("cpu"))
         )
 
     if TRAINING:
@@ -189,7 +219,7 @@ if __name__ == "__main__":
             DEBUG_MODE=DEBUG_MODE,
             # training_losses=None,
         )
-        torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}.pth") #saving
+        torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}_{LOSS_INDEX}.pth") #saving
 
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
@@ -200,4 +230,4 @@ if __name__ == "__main__":
     save_tensor(gif_tensor, VOXEL_PATH_NAME)
     numpy_seed_state = new_numpy_seed(target_voxel=target_voxel, batch_size=1)
     save_model_state(MODEL, numpy_seed_state, VOXEL_PATH_NAME)
-    anim = visualise(gif_tensor, VOXEL_PATH_NAME, save=True, show=True)
+    anim = visualise(gif_tensor, VOXEL_PATH_NAME, save=True, show=False, loss_suffix=LOSS_INDEX)

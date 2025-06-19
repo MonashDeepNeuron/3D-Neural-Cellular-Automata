@@ -258,9 +258,27 @@ class NCA3DModel(torch.nn.Module):
         return out
 
     def forward(self, x):
+        self.random_number_steps = np.random.randint(
+            self.update_steps[0], self.update_steps[1]
+        )
+        for step in range(self.random_number_steps):  # TODO: Seeding
+            x = self.update(x)
+        return x
+
+    def generate_gif(self, x, shape, channels):
         random_number_steps = np.random.randint(
             self.update_steps[0], self.update_steps[1]
         )
-        for step in range(random_number_steps):  # TODO: Seeding
-            x = self.update(x)
-        return x
+        frames_array = torch.Tensor(
+            random_number_steps,
+            channels,
+            shape[1],
+            shape[2],
+            shape[3],
+        )
+
+        frames_array[0] = x
+        for step in range(1, random_number_steps):
+            frames_array[step] = self.update(frames_array[step-1].unsqueeze(0))
+        return frames_array
+    

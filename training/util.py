@@ -113,7 +113,7 @@ def initialiseGPU(model):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     model = model.to(device)
-    return model
+    return model, device
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -189,7 +189,7 @@ def new_numpy_seed(target_voxel, channels=16, batch_size=1):
 # ════════════════════════════════════════════════════════════════════
 
 
-def visualise(imgTensor, filenameBase, save=True, show=False):
+def visualise(imgTensor, filenameBase, save=True, show=False, loss_suffix = None):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection="3d")
 
@@ -229,7 +229,10 @@ def visualise(imgTensor, filenameBase, save=True, show=False):
         ## Create an animation with the number of frames equal to the time dimension
         ani = animation.FuncAnimation(fig, update, frames=len(imgTensor), repeat=False)
         writer = animation.PillowWriter(fps=5, metadata=dict(artist="Me"), bitrate=1800)
-        ani.save("gif/"+filenameBase + ".gif", writer=writer)
+        if loss_suffix:
+            ani.save("gif/"+filenameBase + "_" + str(loss_suffix) + ".gif", writer=writer)
+        else:
+            ani.save("gif/"+filenameBase + ".gif", writer=writer)
 
     if show:
         update(imgIdx=0)
