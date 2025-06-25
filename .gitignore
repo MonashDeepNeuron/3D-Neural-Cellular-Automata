@@ -179,5 +179,5 @@ cython_debug/
 voxel_models/
 tensors/
 state/
-gif/
-saved_models/
+##gif/
+##saved_models/

@@ -178,6 +178,7 @@ class NCA3DModel(torch.nn.Module):
         hidden_channels=0,
         update_network_hidden_layer_dims=[16, 16],
         update_steps=[48, 64],
+        useGPU = True
     ):
         super(NCA3DModel, self).__init__()
         self.num_hidden_channels = hidden_channels
@@ -199,7 +200,7 @@ class NCA3DModel(torch.nn.Module):
         )
 
         # Use GPU if available
-        if torch.cuda.is_available():
+        if useGPU and torch.cuda.is_available():
             torch.set_default_device("cuda")
             torch.set_default_dtype(FLOAT_TYPE)
             self.device = "cuda"
