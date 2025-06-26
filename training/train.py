@@ -48,9 +48,28 @@ def generate_gif_tensor(model: nn.Module, seed):
     If `record` is true, then records the state in a tensor to animate and saves the video
     Returns the final state
     """
-
-        
     return model.generate_gif(seed, target_voxel.shape, CHANNELS)
+
+def update_pass_sample_pool(device, model, batch, target_voxel, optimiser):
+    """
+    Back calculate gradient and update model paramaters
+    """
+    outputs = torch.zeros(batch, device=device)
+    batch_losses = torch.zeros(BATCH_SIZE, device=device)
+    for batch_idx in range(BATCH_SIZE):
+        optimiser.zero_grad()
+
+        output = model(batch[batch_idx].unsqueeze(0))
+        outputs[batch_idx] = output
+
+        ## Apply voxel-wise MSE loss between RGBA channels in the grid and the target_voxel pattern
+        output = output.squeeze(0)[0:4, :, :, :]
+
+        loss = LOSS_FN(output, target_voxel)
+        batch_losses[batch_idx] = loss.item()
+        loss.backward()
+        optimiser.step()
+    return batch_losses.cpu().numpy(), outputs # might error due to device
 
 
 def update_pass(device, model, batch, target_voxel, optimiser):
@@ -72,6 +91,93 @@ def update_pass(device, model, batch, target_voxel, optimiser):
         optimiser.step()
     return batch_losses.cpu().numpy()
 
+def sample_pool_train(
+    device, 
+    model: nn.Module,
+    target_voxel: torch.Tensor,
+    optimiser,
+    scheduler,
+    record=False,
+    DEBUG_MODE=Debug.OFF,
+    num_samples=8,
+    training_losses=[],
+):
+    
+    target_voxel = target_voxel.to(device)
+
+    start_seed = new_seed(target_voxel=target_voxel, batch_size=1)
+
+    batch = start_seed.repeat(BATCH_SIZE, 1, 1, 1, 1).to(device) # batch_size = pool size
+
+    try:
+        for epoch in range(EPOCHS):
+            model.train()
+            # if record:
+            #     outputs = torch.zeros_like(batch) # would this error?
+
+            indices = torch.randperm(batch.size(0))[:num_samples]
+            sampled_batch = batch[indices]
+
+            # replace one item in sample with starting seed
+            reset_index = torch.randint(0, sampled_batch.size(0), (1,)).item()
+            sampled_batch[reset_index] = start_seed.squeeze(0)
+
+            losses, outputs = update_pass_sample_pool(device, model, sampled_batch, target_voxel, optimiser)
+            training_losses.append(np.mean(losses))
+            batch[indices] = outputs
+
+            scheduler.step() # for learning rate decay
+
+            # Print loss statistics
+            if DEBUG_MODE == Debug.VERBOSE:
+                print(f"epoch {epoch+1}/{EPOCHS} loss = {losses}")
+            elif DEBUG_MODE == Debug.CONCISE:
+                print(
+                    f"""
+                Epoch {epoch + 1}/{EPOCHS}
+                    Mean loss = {np.mean(losses):.4e}
+                    Std loss  = {np.std(losses):.4e}
+                    Min loss  = {np.min(losses):.4e}
+                    Max loss  = {np.max(losses):.4e}
+                """.strip().replace(
+                        " " * 16, "    "
+                    )
+                )
+
+            recordRate = 5  # Loss graph will be updated every x epochs, and model will be saved every x epochs.
+            if epoch % recordRate == 0 and epoch != 0:
+                print(f"saving model, epoch: {epoch}")
+                torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}.pth")
+                fig = plt.figure()
+                ax = fig.add_subplot(1, 1, 1)
+
+                ax.cla()
+                ax.set_yscale("log")
+                ax.set_xlim(0, len(training_losses))
+                ax.set_ylim(min(training_losses), max(training_losses))
+                ax.set_xlabel("Epoch")
+                ax.set_ylabel("Loss")
+                ax.set_title("Loss")
+                ax.plot(training_losses, ".", alpha=0.2)
+                plt.savefig("loss.png")
+                if LOSS_LOGGING:
+                    with open("losses.csv", "a") as f:
+                        losses_str = (
+                            ",".join(
+                                f"{loss:.6f}"
+                                for loss in training_losses[-recordRate - 1 : -1]
+                            )
+                            + ","
+                        )
+                        f.write(losses_str)
+
+    except KeyboardInterrupt:
+        pass
+
+    if record:
+        return (model, training_losses, outputs)
+    else:
+        return model, training_losses
 
 def train(
     device, 
@@ -163,10 +269,13 @@ if __name__ == "__main__":
     MODEL = NCA3DModel(hidden_channels=12)
     MODEL, device = initialiseGPU(MODEL) # initialiseGPU returns the Model that is moved onto GPU
     EPOCHS = 100
-    BATCH_SIZE = 1
+    BATCH_SIZE = 64 #BATCH_SIZE = 1 # 64 for sample pooling
     UPDATES_RANGE = [48, 64]
-    LR = 1e-4  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
+    LR = 1e-3  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
+
+    # StepLR: decay LR by gamma every step_size epochs
+    scheduler = optimizer.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.0002)
 
     LOSS_FN = updated_loss_fn
 
@@ -181,15 +290,23 @@ if __name__ == "__main__":
 
     if TRAINING:
         # losses = getLosses()
-        MODEL, losses = train(
+        # MODEL, losses = train(
+        #     device,
+        #     MODEL,
+        #     target_voxel,
+        #     optimizer,
+        #     DEBUG_MODE=DEBUG_MODE,
+        #     # training_losses=None,
+        # )
+        #torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}.pth") #saving
+        MODEL, losses = sample_pool_train(
             device,
             MODEL,
             target_voxel,
             optimizer,
-            DEBUG_MODE=DEBUG_MODE,
-            # training_losses=None,
+            scheduler=scheduler,
+            DEBUG_MODE=DEBUG_MODE
         )
-        torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}.pth") #saving
 
     # ## Switch state to evaluation to disable dropout e.g.
     MODEL.eval()
