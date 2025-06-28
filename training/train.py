@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from enum import Enum
-from loss import updated_loss_fn
+from loss import Loss
 from util import (
     save_tensor,
     save_model_state,
@@ -21,8 +21,8 @@ from util import (
 )
 
 # memory issues
-torch.cuda.empty_cache()
-torch.cuda.ipc_collect()  
+# torch.cuda.empty_cache()
+# torch.cuda.ipc_collect()  
 
 """
 target_voxel : rgba, x, y, z
@@ -54,7 +54,7 @@ def update_pass_sample_pool(device, model, batch, target_voxel, optimiser):
     """
     Back calculate gradient and update model paramaters
     """
-    outputs = torch.zeros(batch, device=device)
+    outputs = torch.zeros(batch.shape, device=device)
     batch_losses = torch.zeros(BATCH_SIZE, device=device)
     for batch_idx in range(BATCH_SIZE):
         optimiser.zero_grad()
@@ -107,7 +107,9 @@ def sample_pool_train(
 
     start_seed = new_seed(target_voxel=target_voxel, batch_size=1)
 
-    batch = start_seed.repeat(BATCH_SIZE, 1, 1, 1, 1).to(device) # batch_size = pool size
+    batch = start_seed.repeat(SAMPLE_POOL_SIZE, 1, 1, 1, 1).to(device) # batch_size = pool size
+
+    #print(batch.shape)
 
     try:
         for epoch in range(EPOCHS):
@@ -118,13 +120,15 @@ def sample_pool_train(
             indices = torch.randperm(batch.size(0))[:num_samples]
             sampled_batch = batch[indices]
 
+            #print(sampled_batch.shape)
+
             # replace one item in sample with starting seed
             reset_index = torch.randint(0, sampled_batch.size(0), (1,)).item()
             sampled_batch[reset_index] = start_seed.squeeze(0)
 
             losses, outputs = update_pass_sample_pool(device, model, sampled_batch, target_voxel, optimiser)
             training_losses.append(np.mean(losses))
-            batch[indices] = outputs
+            batch[indices] = outputs.detach() # detach comp graph as no longer needed
 
             scheduler.step() # for learning rate decay
 
@@ -269,15 +273,16 @@ if __name__ == "__main__":
     MODEL = NCA3DModel(hidden_channels=12)
     MODEL, device = initialiseGPU(MODEL) # initialiseGPU returns the Model that is moved onto GPU
     EPOCHS = 100
-    BATCH_SIZE = 64 #BATCH_SIZE = 1 # 64 for sample pooling
+    SAMPLE_POOL_SIZE = 64 #BATCH_SIZE = 1 # 64 for sample pooling
+    BATCH_SIZE = 8
     UPDATES_RANGE = [48, 64]
     LR = 1e-3  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
 
     # StepLR: decay LR by gamma every step_size epochs
-    scheduler = optimizer.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.0002)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.0002)
 
-    LOSS_FN = updated_loss_fn
+    LOSS_FN = Loss(loss_fn=1)
 
     target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")
     # target_voxel = minimise_voxel(target_voxel).cpu()
