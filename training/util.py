@@ -55,7 +55,7 @@ def save_tensor(simulation_tensor, filenameBase="test", directory="tensors"):
     np.save(f"{directory}/{filenameBase}", simulation_tensor)
 
 
-def save_model_state(model, seed, filenameBase="test", directory="state"):
+def save_model_state(model, seed, filenameBase="test", directory="state", has_learnable_network = True):
     """
     Saves the model state as a npy file. This state is a dictionary with structure:
     {
@@ -74,6 +74,9 @@ def save_model_state(model, seed, filenameBase="test", directory="state"):
     }
 
     state_dict["seed"] = seed
+     
+    if has_learnable_network:
+        state_dict = {k: v for k, v in state_dict.items() if ".update_net." not in k}
 
     np.save(f"{directory}/{filenameBase}", state_dict)
 
@@ -178,9 +181,10 @@ def new_numpy_seed(target_voxel, channels=16, batch_size=1):
     Seed is a cube map that sets a singular pixel activated in form.
     Returns a NumPy array of shape (batch_size, channels, X, Y, Z).
     """
-    _, X, Y, Z = target_voxel.shape
-    seed = np.zeros((batch_size, channels, X, Y, Z), dtype=np.float32)
-    seed[:, 3, X // 2, Y // 2, 0] = 1.0
+    SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
+    seed = np.zeros((batch_size, channels, SHAPE[1], SHAPE[2], SHAPE[3]), dtype=np.float32)
+    x, y, z = compute_seed_position(target_voxel, SHAPE)
+    seed[:, 3, x, y, z] = 1
     return seed
 
 
