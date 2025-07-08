@@ -145,7 +145,8 @@ def new_seed(target_voxel, channels=16, batch_size=1):
     Seed is a cube map that sets a singular pixel activated in form
     """
     SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
-    seed = torch.zeros(batch_size, channels, SHAPE[1], SHAPE[2], SHAPE[3])
+    seed = torch.zeros(batch_size, channels, SHAPE[0], SHAPE[1], SHAPE[2]) # need to be changed depending on xyzc or cxyz
+
 
     x, y, z = compute_seed_position(target_voxel, SHAPE)
     seed[:, 3, x, y, z] = 1
@@ -182,7 +183,7 @@ def new_numpy_seed(target_voxel, channels=16, batch_size=1):
     Returns a NumPy array of shape (batch_size, channels, X, Y, Z).
     """
     SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
-    seed = np.zeros((batch_size, channels, SHAPE[1], SHAPE[2], SHAPE[3]), dtype=np.float32)
+    seed = np.zeros((batch_size, channels, SHAPE[0], SHAPE[1], SHAPE[2]), dtype=np.float32) # shape need to be changed depending on xyzc or cxyz
     x, y, z = compute_seed_position(target_voxel, SHAPE)
     seed[:, 3, x, y, z] = 1
     return seed

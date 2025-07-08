@@ -58,12 +58,12 @@ class Loss():
 
         iou_loss = self.iou_loss_fn(output, target)
 
-        alive_cells = torch.clamp(output[3], 0.0, 1.0)
+        alive_cells = torch.clamp(output[..., 3], 0.0, 1.0)
         # alive_target_cells = torch.clamp(target[3], 0.0, 1.0)
-        alive_target_cells = torch.clamp(target[3], 0.0, 1.0)
+        alive_target_cells = torch.clamp(target[..., 3], 0.0, 1.0)
 
         alive_loss = torch.nn.functional.mse_loss(alive_cells, alive_target_cells)
-        colour_loss = torch.nn.functional.mse_loss(output[:3], target[:3])
+        colour_loss = torch.nn.functional.mse_loss(output[..., :3], target[...,:3])
         loss = (0.5 * colour_loss + 0.5 * alive_loss + iou_loss) 
         return loss
 
