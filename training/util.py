@@ -147,11 +147,9 @@ def new_seed(target_voxel, channels=16, batch_size=1):
     SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
     seed = torch.zeros(batch_size, channels, SHAPE[0], SHAPE[1], SHAPE[2]) # need to be changed depending on xyzc or cxyz
 
-
     x, y, z = compute_seed_position(target_voxel, SHAPE)
     seed[:, 3, x, y, z] = 1
     return seed
-
 
 def compute_seed_position(target_voxel, shape):
     # note that y and z are swapped around in target_voxel, thus height = z
@@ -206,7 +204,7 @@ def visualise(imgTensor, filenameBase, save=True, show=False, loss_suffix = None
     imgTensor = imgTensor.permute(0, 2, 3, 4, 1)
 
     ## Convert tensor to numpy array (as otherwise matplotlib cannot transpose it (when moveaxis is used))
-    imgTensor = imgTensor.detach().numpy()
+    imgTensor = imgTensor.detach().cpu().numpy()
 
     ## Voxels look like they have their x and y swapped when plotted with matplotlib, so swap them for visualisation
     imgTensor = np.moveaxis(imgTensor, (1, 2), (1, 2))
