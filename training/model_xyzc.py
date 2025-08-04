@@ -54,8 +54,7 @@ class LearnablePerceptionNetwork(torch.nn.Module):
 
         self.conv = torch.nn.Conv3d(
             in_channels=num_channels,
-            out_channels=3
-            * num_channels,  # we want features in the X,Y and Z directions (hence we have 3 times the number of input channels)
+            out_channels= 3 * num_channels,  # we want features in the X,Y and Z directions (hence we have 3 times the number of input channels)
             kernel_size=kernel_size,
             stride=stride, 
             padding=0, # padding will be done manually
@@ -261,7 +260,7 @@ class NCA3DModel(torch.nn.Module):
         )  # store which cells are still alive after update
         alive_mask = (alive_cells & alive_cells_after_update).float().to(self.device)
 
-        out = out * alive_mask  # all cells that are dead will be set to 0
+        out = out * alive_mask # all cells that are dead will be set to 0
 
         return out
 
