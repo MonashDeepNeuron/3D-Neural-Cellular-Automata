@@ -52,12 +52,24 @@ class LearnablePerceptionNetwork(torch.nn.Module):
             LearnablePerceptionNetwork, self
         ).__init__()  # torch.nn.Module super function
 
-        self.conv = torch.nn.Conv3d(
+        out_channels = 3 * num_channels
+
+        self.conv1 = torch.nn.Conv3d(
             in_channels=num_channels,
-            out_channels= 3 * num_channels,  # we want features in the X,Y and Z directions (hence we have 3 times the number of input channels)
+            out_channels=out_channels,
             kernel_size=kernel_size,
             stride=stride, 
             padding=0, # padding will be done manually
+            groups=num_channels,  # when groups = in_channels, each input channel (RGBA) is convolved with its own filters (so we get a convolution per channel, which is what we want when picking up features per channel)
+            bias=bias,
+        )
+
+        self.conv2 = torch.nn.Conv3d(
+            in_channels=out_channels,
+            out_channels=out_channels,  # we want features in the X,Y and Z directions (hence we have 3 times the number of input channels)
+            kernel_size=kernel_size,
+            stride=stride, 
+            padding=1, # padding will be done manually
             groups=num_channels,  # when groups = in_channels, each input channel (RGBA) is convolved with its own filters (so we get a convolution per channel, which is what we want when picking up features per channel)
             bias=bias,
         )
@@ -81,9 +93,8 @@ class LearnablePerceptionNetwork(torch.nn.Module):
         # x input = [b, x, y, z, c]
         x = x.permute(0, 4, 1, 2, 3).contiguous() 
         x = F.pad(x, pad=(1, 1, 1, 1, 1, 1), mode="circular")
-        y = self.conv(x)
+        y = self.conv2(F.relu(self.conv1(x)))
         return y.permute(0, 2, 3, 4, 1).contiguous()
-
 
 class NCA3DUpdateNetwork(torch.nn.Module):
     """

@@ -239,7 +239,7 @@ def train(
             if epoch % recordRate == 0 and epoch != 0:
                 if mean_loss < best_loss:
                     print(f"saving model, epoch: {epoch}")
-                    torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}_v6.pth")
+                    torch.save(MODEL.state_dict(), f"saved_models/{VOXEL_PATH_NAME}_v7.pth") # v7 is complex model
 
                     best_loss = mean_loss
                 fig = plt.figure()
@@ -355,8 +355,8 @@ if __name__ == "__main__":
     #GRID_SIZE = 32
     CHANNELS = 16
     VOXEL_PATH_NAME = "small_sakura"
-    UPDATES_RANGE = [96, 110]
-    EPOCHS = 1000
+    UPDATES_RANGE = [112, 114]
+    EPOCHS = 2000
     #SAMPLE_POOL_SIZE = 1024 #BATCH_SIZE = 1 # 64 for sample pooling
     BATCH_SIZE = 16
 
@@ -367,7 +367,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
 
     # StepLR: decay LR by gamma every step_size epochs
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.0002)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.0002)
 
     LOSS_FN = Loss(loss_fn=1)
 
@@ -377,7 +377,7 @@ if __name__ == "__main__":
 
     SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
     seed = torch.zeros(BATCH_SIZE, 16, SHAPE[0], SHAPE[1], SHAPE[2]) # need to be changed depending on xyzc or cxyz
-    seed[:, 3, 16, 15, 22] = 1
+    seed[:, 3, 16, 15, 0] = 1
 
     # if os.path.exists(f"saved_models/{VOXEL_PATH_NAME}_v4.pth"):
     #     MODEL.load_state_dict(
@@ -417,72 +417,72 @@ if __name__ == "__main__":
     # save_model_state(MODEL, numpy_seed_state, VOXEL_PATH_NAME)
     # anim = visualise(gif_tensor, VOXEL_PATH_NAME, save=True, show=True)
 
-    DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
-    LOSS_LOGGING = True
+    # DEBUG_MODE = Debug.CONCISE  # OFF, VERBOSE, CONCISE
+    # LOSS_LOGGING = True
 
-    torch.manual_seed(0)
-    TRAINING = True
-    #GRID_SIZE = 32
-    CHANNELS = 16
-    VOXEL_PATH_NAME = "Tree_Pine"
-    UPDATES_RANGE = [96, 110]
-    EPOCHS = 1000
-    #SAMPLE_POOL_SIZE = 1024 #BATCH_SIZE = 1 # 64 for sample pooling
-    BATCH_SIZE = 16
+    # torch.manual_seed(0)
+    # TRAINING = True
+    # #GRID_SIZE = 32
+    # CHANNELS = 16
+    # VOXEL_PATH_NAME = "Tree_Pine"
+    # UPDATES_RANGE = [96, 110]
+    # EPOCHS = 1000
+    # #SAMPLE_POOL_SIZE = 1024 #BATCH_SIZE = 1 # 64 for sample pooling
+    # BATCH_SIZE = 16
 
-    MODEL = NCA3DModel(hidden_channels=12, update_steps=UPDATES_RANGE)
-    MODEL, device = initialiseGPU(MODEL) # initialiseGPU returns the Model that is moved onto GPU
+    # MODEL = NCA3DModel(hidden_channels=12, update_steps=UPDATES_RANGE)
+    # MODEL, device = initialiseGPU(MODEL) # initialiseGPU returns the Model that is moved onto GPU
 
-    LR = 2e-3  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
-    optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
+    # LR = 2e-3  # Suggestion: 1e-3 for hours of training, 1e-4 for tens of hours.
+    # optimizer = torch.optim.Adam(MODEL.parameters(), lr=LR)
 
-    # StepLR: decay LR by gamma every step_size epochs
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.0002)
+    # # StepLR: decay LR by gamma every step_size epochs
+    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.0002)
 
-    LOSS_FN = Loss(loss_fn=1)
+    # LOSS_FN = Loss(loss_fn=1)
 
-    target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")
-    # target_voxel = minimise_voxel(target_voxel).cpu()
-    target_voxel = minimise_voxel(target_voxel).permute(1,2,3,0) 
+    # target_voxel = load_image(f"./voxel_models/{VOXEL_PATH_NAME}.vox")
+    # # target_voxel = minimise_voxel(target_voxel).cpu()
+    # target_voxel = minimise_voxel(target_voxel).permute(1,2,3,0) 
 
-    SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
-    seed = torch.zeros(BATCH_SIZE, 16, SHAPE[0], SHAPE[1], SHAPE[2]) # need to be changed depending on xyzc or cxyz
-    seed[:, 3, 6, 6, 15] = 1
+    # SHAPE = [target_voxel.shape[i] for i in range(len(target_voxel.shape))]
+    # seed = torch.zeros(BATCH_SIZE, 16, SHAPE[0], SHAPE[1], SHAPE[2]) # need to be changed depending on xyzc or cxyz
+    # seed[:, 3, 6, 6, 15] = 1
 
-    # if os.path.exists(f"saved_models/{VOXEL_PATH_NAME}_v4.pth"):
-    #     MODEL.load_state_dict(
-    #         torch.load(f"saved_models/{VOXEL_PATH_NAME}_v4.pth", map_location=device)
+    # # if os.path.exists(f"saved_models/{VOXEL_PATH_NAME}_v4.pth"):
+    # #     MODEL.load_state_dict(
+    # #         torch.load(f"saved_models/{VOXEL_PATH_NAME}_v4.pth", map_location=device)
+    # #     )
+
+    # if TRAINING:
+    #     # losses = getLosses()
+    #     MODEL, losses = train(
+    #         device,
+    #         MODEL,
+    #         target_voxel,
+    #         seed,
+    #         optimizer,
+    #         scheduler=scheduler,
+    #         DEBUG_MODE=DEBUG_MODE,
+    #         # training_losses=None,
     #     )
+    #     # MODEL, losses = sample_pool_train(
+    #     #     device,
+    #     #     MODEL,
+    #     #     target_voxel,
+    #     #     optimizer,
+    #     #     scheduler=scheduler,
+    #     #     num_samples=BATCH_SIZE,
+    #     #     DEBUG_MODE=DEBUG_MODE
+    #     # )
 
-    if TRAINING:
-        # losses = getLosses()
-        MODEL, losses = train(
-            device,
-            MODEL,
-            target_voxel,
-            seed,
-            optimizer,
-            scheduler=scheduler,
-            DEBUG_MODE=DEBUG_MODE,
-            # training_losses=None,
-        )
-        # MODEL, losses = sample_pool_train(
-        #     device,
-        #     MODEL,
-        #     target_voxel,
-        #     optimizer,
-        #     scheduler=scheduler,
-        #     num_samples=BATCH_SIZE,
-        #     DEBUG_MODE=DEBUG_MODE
-        # )
+    # # # ## Switch state to evaluation to disable dropout e.g.
+    # # MODEL.eval()
 
-    # # ## Switch state to evaluation to disable dropout e.g.
-    # MODEL.eval()
-
-    # # ## Plot final state of evaluation OR evaluation animation
-    # gif_seed = new_seed(target_voxel=target_voxel, batch_size=1)
-    # gif_tensor = generate_gif_tensor(MODEL, gif_seed)
-    # save_tensor(gif_tensor, VOXEL_PATH_NAME)
-    # numpy_seed_state = new_numpy_seed(target_voxel=target_voxel, batch_size=1)
-    # save_model_state(MODEL, numpy_seed_state, VOXEL_PATH_NAME)
-    # anim = visualise(gif_tensor, VOXEL_PATH_NAME, save=True, show=True)
+    # # # ## Plot final state of evaluation OR evaluation animation
+    # # gif_seed = new_seed(target_voxel=target_voxel, batch_size=1)
+    # # gif_tensor = generate_gif_tensor(MODEL, gif_seed)
+    # # save_tensor(gif_tensor, VOXEL_PATH_NAME)
+    # # numpy_seed_state = new_numpy_seed(target_voxel=target_voxel, batch_size=1)
+    # # save_model_state(MODEL, numpy_seed_state, VOXEL_PATH_NAME)
+    # # anim = visualise(gif_tensor, VOXEL_PATH_NAME, save=True, show=True)
